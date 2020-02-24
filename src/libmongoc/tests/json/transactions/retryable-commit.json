@@ -406,7 +406,7 @@
       }
     },
     {
-      "description": "commitTransaction fails after WriteConcernError Interrupted",
+      "description": "commitTransaction is not retried after UnsatisfiableWriteConcern error",
       "failPoint": {
         "configureFailPoint": "failCommand",
         "mode": {
@@ -417,8 +417,8 @@
             "commitTransaction"
           ],
           "writeConcernError": {
-            "code": 11601,
-            "errmsg": "operation was interrupted"
+            "code": 100,
+            "errmsg": "Not enough data-bearing nodes"
           }
         }
       },
