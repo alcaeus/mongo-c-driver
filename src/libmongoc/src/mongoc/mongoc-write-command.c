@@ -595,7 +595,7 @@ _mongoc_write_opmsg (mongoc_write_command_t *command,
             ret,
             error,
             &reply,
-            server_stream->sd->max_wire_version <
+            server_stream->sd->max_wire_version >=
                WIRE_VERSION_RETRYABLE_WRITE_ERROR_LABEL);
          if (is_retryable) {
             _mongoc_write_error_update_if_unsupported_storage_engine (
@@ -1628,7 +1628,7 @@ mongoc_write_err_type_t
 _mongoc_write_error_get_type (bool cmd_ret,
                               const bson_error_t *cmd_err,
                               bson_t *reply,
-                              bool append_retryable_label)
+                              bool supports_retryable_write_label)
 {
    bson_error_t error;
 
@@ -1656,10 +1656,9 @@ _mongoc_write_error_get_type (bool cmd_ret,
       return MONGOC_WRITE_ERR_NONE;
    }
 
-   if (_mongoc_write_error_is_retryable (&error)) {
-      if (append_retryable_label) {
-         _mongoc_write_error_append_retryable_label (reply);
-      }
+   if (!supports_retryable_write_label &&
+       _mongoc_write_error_is_retryable (&error)) {
+      _mongoc_write_error_append_retryable_label (reply);
 
       return MONGOC_WRITE_ERR_RETRY;
    }

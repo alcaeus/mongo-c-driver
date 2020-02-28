@@ -3209,7 +3209,7 @@ retry:
                           ret,
                           error,
                           reply_ptr,
-                          server_stream->sd->max_wire_version <
+                          server_stream->sd->max_wire_version >=
                              WIRE_VERSION_RETRYABLE_WRITE_ERROR_LABEL) ==
                           MONGOC_WRITE_ERR_RETRY) {
       bson_error_t ignored_error;
@@ -3219,9 +3219,8 @@ retry:
       retry_server_stream = mongoc_cluster_stream_for_writes (
          cluster, parts.assembled.session, NULL /* reply */, &ignored_error);
 
-      if (retry_server_stream &&
-          retry_server_stream->sd->max_wire_version >=
-             WIRE_VERSION_RETRY_WRITES) {
+      if (retry_server_stream && retry_server_stream->sd->max_wire_version >=
+                                    WIRE_VERSION_RETRY_WRITES) {
          parts.assembled.server_stream = retry_server_stream;
          GOTO (retry);
       }

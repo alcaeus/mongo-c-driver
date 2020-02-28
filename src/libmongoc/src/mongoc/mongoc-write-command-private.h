@@ -220,7 +220,7 @@ mongoc_write_err_type_t
 _mongoc_write_error_get_type (bool cmd_ret,
                               const bson_error_t *cmd_err,
                               bson_t *reply,
-                              bool append_retryable_label);
+                              bool supports_retryable_write_label);
 
 bool
 _mongoc_write_error_update_if_unsupported_storage_engine (bool cmd_ret,
