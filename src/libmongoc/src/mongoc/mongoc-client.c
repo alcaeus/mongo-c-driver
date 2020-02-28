@@ -1612,6 +1612,13 @@ retry:
    ret = mongoc_cluster_run_command_monitored (
       &client->cluster, &parts->assembled, reply, error);
 
+   _mongoc_write_error_handle_labels (
+      ret,
+      error,
+      reply,
+      server_stream->sd->max_wire_version >=
+         WIRE_VERSION_RETRYABLE_WRITE_ERROR_LABEL);
+
    if (is_retryable) {
       _mongoc_write_error_update_if_unsupported_storage_engine (
          ret, error, reply);

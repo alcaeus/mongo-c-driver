@@ -583,6 +583,15 @@ _mongoc_write_opmsg (mongoc_write_command_t *command,
          ret = mongoc_cluster_run_command_monitored (
             &client->cluster, &parts.assembled, &reply, error);
 
+         if (parts.is_retryable_write) {
+            _mongoc_write_error_handle_labels (
+               ret,
+               error,
+               &reply,
+               server_stream->sd->max_wire_version >=
+                  WIRE_VERSION_RETRYABLE_WRITE_ERROR_LABEL);
+         }
+
          /* Add this batch size so we skip these documents next time */
          payload_total_offset += payload_batch_size;
          payload_batch_size = 0;

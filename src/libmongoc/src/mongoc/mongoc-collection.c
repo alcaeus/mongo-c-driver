@@ -38,6 +38,7 @@
 #include "mongoc-write-command-private.h"
 #include "mongoc-opts-private.h"
 #include "mongoc-write-command-private.h"
+#include "mongoc-error-private.h"
 
 #undef MONGOC_LOG_DOMAIN
 #define MONGOC_LOG_DOMAIN "collection"
@@ -3195,6 +3196,15 @@ retry:
    bson_destroy (reply_ptr);
    ret = mongoc_cluster_run_command_monitored (
       cluster, &parts.assembled, reply_ptr, error);
+
+   if (parts.is_retryable_write) {
+      _mongoc_write_error_handle_labels (
+         ret,
+         error,
+         reply_ptr,
+         server_stream->sd->max_wire_version >=
+            WIRE_VERSION_RETRYABLE_WRITE_ERROR_LABEL);
+   }
 
    if (is_retryable) {
       _mongoc_write_error_update_if_unsupported_storage_engine (
