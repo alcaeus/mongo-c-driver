@@ -52,6 +52,7 @@
 #include "utlist.h"
 #include "mongoc-handshake-private.h"
 #include "mongoc-cluster-aws-private.h"
+#include "mongoc-error-private.h"
 
 #undef MONGOC_LOG_DOMAIN
 #define MONGOC_LOG_DOMAIN "cluster"
@@ -504,6 +505,25 @@ _in_sharded_txn (const mongoc_client_session_t *session)
              MONGOC_TOPOLOGY_SHARDED;
 }
 
+static void
+_handle_txn_error_labels (bool cmd_ret,
+                          const bson_error_t *cmd_err,
+                          const mongoc_cmd_t *cmd,
+                          bson_t *reply)
+{
+   if (strcasecmp (cmd->command_name, "committransaction") != 0 &&
+       strcasecmp (cmd->command_name, "aborttransaction") != 0) {
+      return;
+   }
+
+   _mongoc_write_error_handle_labels (
+      cmd_ret,
+      cmd_err,
+      reply,
+      cmd->server_stream->sd->max_wire_version >=
+         WIRE_VERSION_RETRYABLE_WRITE_ERROR_LABEL);
+}
+
 /*
  *--------------------------------------------------------------------------
  *
@@ -638,6 +658,8 @@ mongoc_cluster_run_command_monitored (mongoc_cluster_t *cluster,
    }
 
    handle_not_master_error (cluster, server_id, reply);
+
+   _handle_txn_error_labels (retval, error, cmd, reply);
 
    if (retval && _in_sharded_txn (cmd->session) &&
        bson_iter_init_find (&iter, reply, "recoveryToken")) {
