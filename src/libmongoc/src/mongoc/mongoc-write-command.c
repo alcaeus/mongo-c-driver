@@ -1515,26 +1515,42 @@ static bool
 _mongoc_write_error_is_retryable (bson_error_t *error)
 {
    switch (error->code) {
-      case 6:     /* HostUnreachable */
-      case 7:     /* HostNotFound */
-      case 89:    /* NetworkTimeout */
-      case 91:    /* ShutdownInProgress */
-      case 189:   /* PrimarySteppedDown */
-      case 262:   /* ExceededTimeLimit */
-      case 9001:  /* SocketException */
-      case 10107: /* NotMaster */
-      case 11600: /* InterruptedAtShutdown */
-      case 11602: /* InterruptedDueToReplStateChange */
-      case 13435: /* NotMasterNoSlaveOk */
-      case 13436: /* NotMasterOrSecondary */
+   case 6:     /* HostUnreachable */
+   case 7:     /* HostNotFound */
+   case 89:    /* NetworkTimeout */
+   case 91:    /* ShutdownInProgress */
+   case 189:   /* PrimarySteppedDown */
+   case 262:   /* ExceededTimeLimit */
+   case 9001:  /* SocketException */
+   case 10107: /* NotMaster */
+   case 11600: /* InterruptedAtShutdown */
+   case 11602: /* InterruptedDueToReplStateChange */
+   case 13435: /* NotMasterNoSlaveOk */
+   case 13436: /* NotMasterOrSecondary */
+      return true;
+   default:
+      if (strstr (error->message, "not master") ||
+          strstr (error->message, "node is recovering")) {
          return true;
-      default:
-         if (strstr (error->message, "not master") ||
-             strstr (error->message, "node is recovering")) {
-            return true;
-         }
-         return false;
+      }
+      return false;
    }
+}
+
+static bool
+_mongoc_write_error_labels_contains (bson_iter_t *iter, const char *label)
+{
+   while (bson_iter_next (iter)) {
+      if (!BSON_ITER_HOLDS_UTF8 (iter)) {
+         continue;
+      }
+
+      if (!strcmp (bson_iter_utf8 (iter, NULL), label)) {
+         return true;
+      }
+   }
+
+   return false;
 }
 
 /*--------------------------------------------------------------------------
@@ -1542,7 +1558,7 @@ _mongoc_write_error_is_retryable (bson_error_t *error)
  * _mongoc_write_error_has_retryable_label --
  *
  *       Checks if the error from a write command has a "RetryableWriteError"
- *       error label.
+ *       error label or contains a writeConcernError with a retryable label.
  *
  *
  * Return:
@@ -1556,22 +1572,26 @@ _mongoc_write_error_has_retryable_label (const bson_t *reply)
    bson_iter_t iter;
    bson_iter_t label;
 
-   if (!bson_iter_init_find (&iter, reply, "errorLabels")) {
-      return false;
-   }
-
-   BSON_ASSERT (bson_iter_recurse (&iter, &label));
-   while (bson_iter_next (&label)) {
-      if (!BSON_ITER_HOLDS_UTF8 (&label)) {
-         continue;
-      }
-
-      if (!strcmp (bson_iter_utf8 (&label, NULL), RETRYABLE_WRITE_ERROR)) {
+   if (bson_iter_init_find (&iter, reply, "errorLabels")) {
+      BSON_ASSERT (bson_iter_recurse (&iter, &label));
+      if (_mongoc_write_error_labels_contains (&label, RETRYABLE_WRITE_ERROR)) {
          return true;
       }
    }
 
-   return false;
+   if (!bson_iter_init_find (&iter, reply, "writeConcernError")) {
+      return false;
+   }
+
+   BSON_ASSERT (bson_iter_recurse (&iter, &iter));
+
+   if (!bson_iter_find (&iter, "errorLabels")) {
+      return false;
+   }
+
+   BSON_ASSERT (bson_iter_recurse (&iter, &label));
+
+   return _mongoc_write_error_labels_contains (&label, RETRYABLE_WRITE_ERROR);
 }
 
 static void
