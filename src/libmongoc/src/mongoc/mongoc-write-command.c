@@ -1502,63 +1502,6 @@ _mongoc_write_result_complete (
 }
 
 
-static bool
-_mongoc_write_error_labels_contains (bson_iter_t *iter, const char *label)
-{
-   while (bson_iter_next (iter)) {
-      if (!BSON_ITER_HOLDS_UTF8 (iter)) {
-         continue;
-      }
-
-      if (!strcmp (bson_iter_utf8 (iter, NULL), label)) {
-         return true;
-      }
-   }
-
-   return false;
-}
-
-/*--------------------------------------------------------------------------
- *
- * _mongoc_write_error_has_retryable_label --
- *
- *       Checks if the error from a write command has a "RetryableWriteError"
- *       error label or contains a writeConcernError with a retryable label.
- *
- *
- * Return:
- *       True if the label is found, false otherwise.
- *
- *--------------------------------------------------------------------------
- */
-static bool
-_mongoc_write_error_has_retryable_label (const bson_t *reply)
-{
-   bson_iter_t iter;
-   bson_iter_t label;
-
-   if (bson_iter_init_find (&iter, reply, "errorLabels")) {
-      BSON_ASSERT (bson_iter_recurse (&iter, &label));
-      if (_mongoc_write_error_labels_contains (&label, RETRYABLE_WRITE_ERROR)) {
-         return true;
-      }
-   }
-
-   if (!bson_iter_init_find (&iter, reply, "writeConcernError")) {
-      return false;
-   }
-
-   BSON_ASSERT (bson_iter_recurse (&iter, &iter));
-
-   if (!bson_iter_find (&iter, "errorLabels")) {
-      return false;
-   }
-
-   BSON_ASSERT (bson_iter_recurse (&iter, &label));
-
-   return _mongoc_write_error_labels_contains (&label, RETRYABLE_WRITE_ERROR);
-}
-
 /*--------------------------------------------------------------------------
  *
  * _mongoc_write_error_get_type --
@@ -1580,7 +1523,7 @@ _mongoc_write_error_get_type (bson_t *reply)
 {
    bson_error_t error;
 
-   if (_mongoc_write_error_has_retryable_label (reply)) {
+   if (mongoc_error_has_label (reply, RETRYABLE_WRITE_ERROR)) {
       return MONGOC_WRITE_ERR_RETRY;
    }
 
