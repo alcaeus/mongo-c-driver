@@ -19,6 +19,7 @@
 #include "mongoc-error.h"
 #include "mongoc-error-private.h"
 #include "mongoc-rpc-private.h"
+#include "mongoc-client-private.h"
 
 bool
 mongoc_error_has_label (const bson_t *reply, const char *label)
@@ -106,7 +107,7 @@ void
 _mongoc_write_error_handle_labels (bool cmd_ret,
                                    const bson_error_t *cmd_err,
                                    bson_t *reply,
-                                   bool supports_retryable_write_label)
+                                   int32_t server_max_wire_version)
 {
    bson_error_t error;
 
@@ -121,7 +122,7 @@ _mongoc_write_error_handle_labels (bool cmd_ret,
       return;
    }
 
-   if (supports_retryable_write_label) {
+   if (server_max_wire_version >= WIRE_VERSION_RETRYABLE_WRITE_ERROR_LABEL) {
       return;
    }
 

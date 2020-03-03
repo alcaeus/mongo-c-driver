@@ -585,11 +585,7 @@ _mongoc_write_opmsg (mongoc_write_command_t *command,
 
          if (parts.is_retryable_write) {
             _mongoc_write_error_handle_labels (
-               ret,
-               error,
-               &reply,
-               server_stream->sd->max_wire_version >=
-                  WIRE_VERSION_RETRYABLE_WRITE_ERROR_LABEL);
+               ret, error, &reply, server_stream->sd->max_wire_version);
          }
 
          /* Add this batch size so we skip these documents next time */
@@ -1510,7 +1506,9 @@ _mongoc_write_result_complete (
  *       retryable according to the retryable writes spec. Checks both
  *       for a client error (a network exception) and a server error in
  *       the reply. @cmd_ret and @cmd_err come from the result of a
- *       write_command function.
+ *       write_command function. This function should be called after
+ *       error labels are appended in _mongoc_write_error_handle_labels,
+ *       which should be called after mongoc_cluster_run_command_monitored.
  *
  *
  * Return:

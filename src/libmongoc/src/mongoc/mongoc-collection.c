@@ -3199,11 +3199,7 @@ retry:
 
    if (parts.is_retryable_write) {
       _mongoc_write_error_handle_labels (
-         ret,
-         error,
-         reply_ptr,
-         server_stream->sd->max_wire_version >=
-            WIRE_VERSION_RETRYABLE_WRITE_ERROR_LABEL);
+         ret, error, reply_ptr, server_stream->sd->max_wire_version);
    }
 
    if (is_retryable) {

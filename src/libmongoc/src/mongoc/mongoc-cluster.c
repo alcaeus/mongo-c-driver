@@ -511,17 +511,12 @@ _handle_txn_error_labels (bool cmd_ret,
                           const mongoc_cmd_t *cmd,
                           bson_t *reply)
 {
-   if (strcasecmp (cmd->command_name, "committransaction") != 0 &&
-       strcasecmp (cmd->command_name, "aborttransaction") != 0) {
+   if (!cmd->is_txn_finish) {
       return;
    }
 
    _mongoc_write_error_handle_labels (
-      cmd_ret,
-      cmd_err,
-      reply,
-      cmd->server_stream->sd->max_wire_version >=
-         WIRE_VERSION_RETRYABLE_WRITE_ERROR_LABEL);
+      cmd_ret, cmd_err, reply, cmd->server_stream->sd->max_wire_version);
 }
 
 /*
