@@ -1775,6 +1775,202 @@ gridfs_download (mongoc_database_t *db,
    return true;
 }
 
+
+static bool
+create_collection (mongoc_database_t *db,
+                   const bson_t *test,
+                   const bson_t *operation,
+                   mongoc_client_session_t *session,
+                   bson_t *reply)
+{
+   bson_t args;
+   bson_t opts = BSON_INITIALIZER;
+   bson_error_t error;
+   bool r;
+   const char *collection_name;
+
+   BSON_ASSERT (db);
+
+   /* We don't use reply, but we need to initialize it for the test runner */
+   bson_init (reply);
+
+   append_session (session, &opts);
+
+   bson_lookup_doc (operation, "arguments", &args);
+   collection_name = bson_lookup_utf8 (&args, "collection");
+   COPY_EXCEPT ("collection");
+
+   r = mongoc_database_create_collection (db, collection_name, &opts, &error);
+
+   bson_destroy (&opts);
+
+   check_result (test, operation, r, NULL, &error);
+
+   return true;
+}
+
+
+static bool
+drop_collection (mongoc_database_t *db,
+                 const bson_t *test,
+                 const bson_t *operation,
+                 mongoc_client_session_t *session,
+                 bson_t *reply)
+{
+   bson_t args;
+   bson_t opts = BSON_INITIALIZER;
+   bson_error_t error;
+   bool r;
+   const char *collection_name;
+   mongoc_collection_t *collection;
+
+   BSON_ASSERT (db);
+
+   /* We don't use reply, but we need to initialize it for the test runner */
+   bson_init (reply);
+
+   append_session (session, &opts);
+
+   bson_lookup_doc (operation, "arguments", &args);
+   collection_name = bson_lookup_utf8 (&args, "collection");
+   COPY_EXCEPT ("collection");
+
+   collection = mongoc_database_get_collection (db, collection_name);
+
+   r = mongoc_collection_drop_with_opts (collection, &opts, &error);
+
+   bson_destroy (&opts);
+   mongoc_collection_destroy (collection);
+
+   check_result (test, operation, r, NULL, &error);
+
+   return true;
+}
+
+
+static bool
+create_index (mongoc_database_t *db,
+              mongoc_collection_t *collection,
+              const bson_t *test,
+              const bson_t *operation,
+              mongoc_client_session_t *session,
+              bson_t *reply)
+{
+   bson_t args;
+   bson_t keys;
+   const char *name;
+   bson_t opts = BSON_INITIALIZER;
+   bson_t *create_indexes;
+   bson_error_t error;
+   bool r;
+
+   BSON_ASSERT (collection);
+
+   /* We don't use reply, but we need to initialize it for the test runner */
+   bson_init (reply);
+
+   append_session (session, &opts);
+
+   bson_lookup_doc (operation, "arguments", &args);
+   bson_lookup_doc (&args, "keys", &keys);
+   name = bson_lookup_utf8 (&args, "name");
+   COPY_EXCEPT ("keys", "name");
+
+   create_indexes = BCON_NEW ("createIndexes",
+                              BCON_UTF8 (collection->collection),
+                              "indexes",
+                              "[",
+                              "{",
+                              "key",
+                              BCON_DOCUMENT (&keys),
+                              "name",
+                              BCON_UTF8 (name),
+                              "}",
+                              "]");
+
+   r = mongoc_database_write_command_with_opts (
+      db, create_indexes, &opts, NULL, &error);
+
+   bson_destroy (&opts);
+   bson_destroy (create_indexes);
+
+   check_result (test, operation, r, NULL, &error);
+
+   return true;
+}
+
+
+static bool
+collection_exists (mongoc_client_t *client, const bson_t *operation)
+{
+   char **names;
+   char **name;
+   bson_t args;
+   const char *database_name;
+   const char *collection_name;
+   bson_error_t error;
+   mongoc_database_t *db;
+   bool found = false;
+
+   bson_lookup_doc (operation, "arguments", &args);
+   database_name = bson_lookup_utf8 (&args, "database");
+   collection_name = bson_lookup_utf8 (&args, "collection");
+
+   db = mongoc_client_get_database (client, database_name);
+
+   names = mongoc_database_get_collection_names_with_opts (db, NULL, &error);
+
+   for (name = names; *name; name++) {
+      if (!strcmp (*name, collection_name)) {
+         found = true;
+      }
+
+      bson_free (*name);
+   }
+
+   bson_free (names);
+
+   return found;
+}
+
+
+static bool
+index_exists (mongoc_client_t *client, const bson_t *operation)
+{
+   bson_t args;
+   const char *database_name;
+   const char *collection_name;
+   const char *index_name;
+   mongoc_collection_t *collection;
+   mongoc_cursor_t *indexes;
+   bson_iter_t index;
+   const bson_t *doc;
+   bool found = false;
+
+   bson_lookup_doc (operation, "arguments", &args);
+   database_name = bson_lookup_utf8 (&args, "database");
+   collection_name = bson_lookup_utf8 (&args, "collection");
+   index_name = bson_lookup_utf8 (&args, "index");
+
+   collection =
+      mongoc_client_get_collection (client, database_name, collection_name);
+
+   indexes = mongoc_collection_find_indexes_with_opts (collection, NULL);
+
+   while (mongoc_cursor_next (indexes, &doc)) {
+      if (bson_iter_init (&index, doc) && bson_iter_find (&index, "name") &&
+          BSON_ITER_HOLDS_UTF8 (&index) &&
+          !strcmp (bson_iter_utf8 (&index, NULL), index_name)) {
+         found = true;
+      }
+   }
+
+   mongoc_cursor_destroy (indexes);
+
+   return found;
+}
+
+
 static bool
 op_error (const bson_t *operation)
 {
@@ -1879,6 +2075,8 @@ json_test_operation (json_test_ctx_t *ctx,
          bson_destroy (&pipeline);
       } else if (!strcmp (op_name, "mapReduce")) {
          test_error ("operation not implemented in libmongoc");
+      } else if (!strcmp (op_name, "createIndex")) {
+         res = create_index (db, c, test, operation, session, reply);
       } else {
          test_error ("unrecognized collection operation name %s", op_name);
       }
@@ -1906,6 +2104,10 @@ json_test_operation (json_test_ctx_t *ctx,
          bson_destroy (&pipeline);
       } else if (!strcmp (op_name, "listCollectionObjects")) {
          test_error ("listCollectionObjects is not implemented in libmongoc");
+      } else if (!strcmp (op_name, "createCollection")) {
+         create_collection (db, test, operation, session, reply);
+      } else if (!strcmp (op_name, "dropCollection")) {
+         drop_collection (db, test, operation, session, reply);
       } else {
          test_error ("unrecognized database operation name %s", op_name);
       }
@@ -1964,6 +2166,42 @@ json_test_operation (json_test_ctx_t *ctx,
                         "runner has not captured them");
          }
          BSON_ASSERT (!bson_equal (ctx->sent_lsids[0], ctx->sent_lsids[1]));
+      } else if (!strcmp (op_name, "assertCollectionExists")) {
+         mongoc_client_t *client;
+         bool exists;
+
+         client = mongoc_client_new_from_uri (ctx->client->uri);
+         exists = collection_exists (client, operation);
+         mongoc_client_destroy (client);
+
+         BSON_ASSERT (exists);
+      } else if (!strcmp (op_name, "assertCollectionNotExists")) {
+         mongoc_client_t *client;
+         bool exists;
+
+         client = mongoc_client_new_from_uri (ctx->client->uri);
+         exists = collection_exists (client, operation);
+         mongoc_client_destroy (client);
+
+         BSON_ASSERT (!exists);
+      } else if (!strcmp (op_name, "assertIndexExists")) {
+         mongoc_client_t *client;
+         bool exists;
+
+         client = mongoc_client_new_from_uri (ctx->client->uri);
+         exists = index_exists (client, operation);
+         mongoc_client_destroy (client);
+
+         BSON_ASSERT (exists);
+      } else if (!strcmp (op_name, "assertIndexNotExists")) {
+         mongoc_client_t *client;
+         bool exists;
+
+         client = mongoc_client_new_from_uri (ctx->client->uri);
+         exists = index_exists (client, operation);
+         mongoc_client_destroy (client);
+
+         BSON_ASSERT (!exists);
       } else {
          test_error ("unrecognized session operation name %s", op_name);
       }
