@@ -1966,6 +1966,7 @@ index_exists (mongoc_client_t *client, const bson_t *operation)
    }
 
    mongoc_cursor_destroy (indexes);
+   mongoc_collection_destroy (collection);
 
    return found;
 }
