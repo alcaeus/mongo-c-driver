@@ -415,6 +415,8 @@ check_error_labels_contain (const bson_t *operation, const bson_value_t *result)
       return;
    }
 
+   BSON_ASSERT (result);
+
    BSON_ASSERT (bson_iter_init (&operation_iter, operation));
    BSON_ASSERT (bson_iter_find_descendant (
       &operation_iter, "errorLabelsContain", &expected_labels));
@@ -445,6 +447,8 @@ check_error_labels_omit (const bson_t *operation, const bson_value_t *result)
    if (!bson_has_field (operation, "errorLabelsOmit")) {
       return;
    }
+
+   BSON_ASSERT (result);
 
    if (result->value_type != BSON_TYPE_DOCUMENT) {
       /* successful result from count, distinct, etc. */
