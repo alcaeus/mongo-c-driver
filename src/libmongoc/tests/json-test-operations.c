@@ -1790,7 +1790,7 @@ create_collection (mongoc_database_t *db,
    bson_t args;
    bson_t opts = BSON_INITIALIZER;
    bson_error_t error;
-   bool r;
+   mongoc_collection_t *collection;
    const char *collection_name;
 
    BSON_ASSERT (db);
@@ -1804,11 +1804,15 @@ create_collection (mongoc_database_t *db,
    collection_name = bson_lookup_utf8 (&args, "collection");
    COPY_EXCEPT ("collection");
 
-   r = mongoc_database_create_collection (db, collection_name, &opts, &error);
+   collection = mongoc_database_create_collection (db, collection_name, &opts, &error);
 
    bson_destroy (&opts);
 
-   check_result (test, operation, r, NULL, &error);
+   check_result (test, operation, collection != NULL, NULL, &error);
+
+   if (collection) {
+      mongoc_collection_destroy (collection);
+   }
 
    return true;
 }
@@ -1933,6 +1937,7 @@ collection_exists (mongoc_client_t *client, const bson_t *operation)
    }
 
    bson_free (names);
+   mongoc_database_destroy (db);
 
    return found;
 }
