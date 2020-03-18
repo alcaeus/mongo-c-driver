@@ -177,14 +177,17 @@ opts_structs = OrderedDict([
         bypass_option,
     ], validate='_mongoc_default_insert_vflags', ordered='true')),
 
-    ('mongoc_delete_one_opts_t', Struct([
+    ('mongoc_delete_opts_t', Shared([
         ('crud', {'type': 'mongoc_crud_opts_t'}),
         collation_option,
     ])),
 
+    ('mongoc_delete_one_opts_t', Struct([
+        ('delete', {'type': 'mongoc_delete_opts_t'}),
+    ])),
+
     ('mongoc_delete_many_opts_t', Struct([
-        ('crud', {'type': 'mongoc_crud_opts_t'}),
-        collation_option,
+        ('delete', {'type': 'mongoc_delete_opts_t'}),
     ])),
 
     ('mongoc_update_one_opts_t', Struct([
