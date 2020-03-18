@@ -49,6 +49,7 @@ typedef struct _mongoc_insert_many_opts_t {
 typedef struct _mongoc_delete_opts_t {
    mongoc_crud_opts_t crud;
    bson_t collation;
+   bson_value_t hint;
 } mongoc_delete_opts_t;
 
 typedef struct _mongoc_delete_one_opts_t {
@@ -118,6 +119,7 @@ typedef struct _mongoc_bulk_replace_one_opts_t {
 
 typedef struct _mongoc_bulk_remove_opts_t {
    bson_t collation;
+   bson_value_t hint;
    int32_t limit;
 } mongoc_bulk_remove_opts_t;
 

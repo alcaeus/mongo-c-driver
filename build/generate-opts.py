@@ -180,6 +180,7 @@ opts_structs = OrderedDict([
     ('mongoc_delete_opts_t', Shared([
         ('crud', {'type': 'mongoc_crud_opts_t'}),
         collation_option,
+        hint_option,
     ])),
 
     ('mongoc_delete_one_opts_t', Struct([
@@ -251,6 +252,7 @@ opts_structs = OrderedDict([
 
     ('mongoc_bulk_remove_opts_t', Shared([
         collation_option,
+        hint_option,
         ('limit', {'type': 'int32_t', 'hidden': True})
     ])),
 
