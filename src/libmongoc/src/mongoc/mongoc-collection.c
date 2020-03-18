@@ -2318,9 +2318,8 @@ static bool
 _mongoc_delete_one_or_many (mongoc_collection_t *collection,
                             bool multi,
                             const bson_t *selector,
-                            mongoc_crud_opts_t *crud,
+                            mongoc_delete_opts_t *delete_opts,
                             const bson_t *cmd_opts,
-                            const bson_t *collation,
                             bson_t *opts,
                             bson_t *reply,
                             bson_error_t *error)
@@ -2338,8 +2337,12 @@ _mongoc_delete_one_or_many (mongoc_collection_t *collection,
    _mongoc_write_result_init (&result);
    bson_append_int32 (opts, "limit", 5, multi ? 0 : 1);
 
-   if (!bson_empty (collation)) {
-      bson_append_document (opts, "collation", 9, collation);
+   if (!bson_empty (&delete_opts->collation)) {
+      bson_append_document (opts, "collation", 9, &delete_opts->collation);
+   }
+
+   if (delete_opts->hint.value_type) {
+      bson_append_value (opts, "hint", 4, &delete_opts->hint);
    }
 
    _mongoc_write_command_init_delete_idl (
@@ -2350,17 +2353,17 @@ _mongoc_delete_one_or_many (mongoc_collection_t *collection,
       ++collection->client->cluster.operation_id);
 
    command.flags.has_multi_write = multi;
-   if (!bson_empty (collation)) {
+   if (!bson_empty (&delete_opts->collation)) {
       command.flags.has_collation = true;
    }
 
    _mongoc_collection_write_command_execute_idl (
-      &command, collection, crud, &result);
+      &command, collection, &delete_opts->crud, &result);
 
    /* set field described in CRUD spec for the DeleteResult */
    ret = MONGOC_WRITE_RESULT_COMPLETE (&result,
                                        collection->client->error_api_version,
-                                       crud->writeConcern,
+                                       delete_opts->crud.writeConcern,
                                        /* no error domain override */
                                        (mongoc_error_domain_t) 0,
                                        reply,
@@ -2399,9 +2402,8 @@ mongoc_collection_delete_one (mongoc_collection_t *collection,
    ret = _mongoc_delete_one_or_many (collection,
                                      false /* multi */,
                                      selector,
-                                     &delete_one_opts.delete.crud,
+                                     &delete_one_opts.delete,
                                      &delete_one_opts.extra,
-                                     &delete_one_opts.delete.collation,
                                      &limit,
                                      reply,
                                      error);
@@ -2438,9 +2440,8 @@ mongoc_collection_delete_many (mongoc_collection_t *collection,
    ret = _mongoc_delete_one_or_many (collection,
                                      true /* multi */,
                                      selector,
-                                     &delete_many_opts.delete.crud,
+                                     &delete_many_opts.delete,
                                      &delete_many_opts.extra,
-                                     &delete_many_opts.delete.collation,
                                      &limit,
                                      reply,
                                      error);

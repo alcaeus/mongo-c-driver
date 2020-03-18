@@ -71,6 +71,8 @@ BSON_BEGIN_DECLS
 #define WIRE_VERSION_4_0 7
 /* first version to support hint for "update" command */
 #define WIRE_VERSION_UPDATE_HINT 8
+/* first version to support hint for "delete" command */
+#define WIRE_VERSION_DELETE_HINT 9
 /* version corresponding to server 4.2 release */
 #define WIRE_VERSION_4_2 8
 /* version corresponding to client side field level encryption support. */
