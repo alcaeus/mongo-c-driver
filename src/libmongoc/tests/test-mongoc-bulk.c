@@ -4847,7 +4847,7 @@ test_bulk_install (TestSuite *suite)
                       test_update_hint_unsupported,
                       NULL,
                       NULL,
-                      test_framework_skip_if_max_wire_version_more_than_7);
+                      test_framework_skip_if_max_wire_version_more_than_5);
    TestSuite_AddLive (
       suite, "/BulkOperation/update/hint/validate", test_update_hint_validate);
    TestSuite_AddLive (
