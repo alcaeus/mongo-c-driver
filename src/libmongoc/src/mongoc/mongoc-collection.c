@@ -3143,11 +3143,9 @@ mongoc_collection_find_and_modify_with_opts (
    }
 
    if (appended_opts.hint.value_type) {
-      if (server_stream->sd->max_wire_version <
-             WIRE_VERSION_HINT_SERVER_SIDE_ERROR ||
-          (server_stream->sd->max_wire_version <
-              WIRE_VERSION_FIND_AND_MODIFY_HINT &&
-           !mongoc_write_concern_is_acknowledged (write_concern))) {
+      int max_wire_version = opts->flags & MONGOC_FIND_AND_MODIFY_REMOVE ? WIRE_VERSION_DELETE_HINT : WIRE_VERSION_UPDATE_HINT;
+
+      if (server_stream->sd->max_wire_version < max_wire_version) {
          bson_set_error (
             error,
             MONGOC_ERROR_COMMAND,
