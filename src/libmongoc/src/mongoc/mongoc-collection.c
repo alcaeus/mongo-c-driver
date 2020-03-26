@@ -3066,15 +3066,6 @@ mongoc_collection_find_and_modify_with_opts (
       GOTO (done);
    }
 
-   if (appended_opts.hint.value_type &&
-       server_stream->sd->max_wire_version < WIRE_VERSION_4_2) {
-      bson_set_error (error,
-                      MONGOC_ERROR_COMMAND,
-                      MONGOC_ERROR_PROTOCOL_BAD_WIRE_VERSION,
-                      "selected server does not support hint on findAndModify");
-      GOTO (done);
-   }
-
    name = mongoc_collection_get_name (collection);
    BSON_APPEND_UTF8 (&command, "findAndModify", name);
    BSON_APPEND_DOCUMENT (&command, "query", query);
@@ -3134,6 +3125,20 @@ mongoc_collection_find_and_modify_with_opts (
    }
 
    if (appended_opts.hint.value_type) {
+      if (server_stream->sd->max_wire_version <
+             WIRE_VERSION_HINT_SERVER_SIDE_ERROR ||
+          (server_stream->sd->max_wire_version <
+              WIRE_VERSION_FIND_AND_MODIFY_HINT &&
+           !mongoc_write_concern_is_acknowledged (
+              appended_opts.writeConcern))) {
+         bson_set_error (
+            error,
+            MONGOC_ERROR_COMMAND,
+            MONGOC_ERROR_PROTOCOL_BAD_WIRE_VERSION,
+            "selected server does not support hint on findAndModify");
+         GOTO (done);
+      }
+
       bson_append_value (&parts.extra, "hint", 4, &appended_opts.hint);
    }
 

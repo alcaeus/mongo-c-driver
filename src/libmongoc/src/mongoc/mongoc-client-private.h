@@ -79,6 +79,8 @@ BSON_BEGIN_DECLS
 #define WIRE_VERSION_CSE 8
 /* first version to support hint for "delete" command */
 #define WIRE_VERSION_DELETE_HINT 9
+/* first version to support hint for "findAndModify" command */
+#define WIRE_VERSION_FIND_AND_MODIFY_HINT 9
 /* version corresponding to server 4.4 release */
 #define WIRE_VERSION_4_4 9
 /* version corresponding to retryable writes error label */
