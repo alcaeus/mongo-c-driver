@@ -3035,6 +3035,7 @@ mongoc_collection_find_and_modify_with_opts (
    mongoc_server_stream_t *server_stream = NULL;
    mongoc_server_stream_t *retry_server_stream = NULL;
    mongoc_find_and_modify_appended_opts_t appended_opts;
+   mongoc_write_concern_t *write_concern = NULL;
 
    ENTRY;
 
@@ -3115,12 +3116,29 @@ mongoc_collection_find_and_modify_with_opts (
    }
 
    if (appended_opts.writeConcern) {
-      if (!mongoc_cmd_parts_set_write_concern (
-             &parts,
-             appended_opts.writeConcern,
-             server_stream->sd->max_wire_version,
-             error)) {
+      if (_mongoc_client_session_in_txn (parts.assembled.session)) {
+         bson_set_error (error,
+                         MONGOC_ERROR_COMMAND,
+                         MONGOC_ERROR_COMMAND_INVALID_ARG,
+                         "Cannot set write concern after starting transaction");
          GOTO (done);
+      }
+
+      write_concern = appended_opts.writeConcern;
+   }
+
+   if (!write_concern) {
+      if (server_stream->sd->max_wire_version >=
+          WIRE_VERSION_FAM_WRITE_CONCERN) {
+         if (!mongoc_write_concern_is_valid (collection->write_concern)) {
+            bson_set_error (error,
+                            MONGOC_ERROR_COMMAND,
+                            MONGOC_ERROR_COMMAND_INVALID_ARG,
+                            "The write concern is invalid.");
+            GOTO (done);
+         }
+
+         write_concern = collection->write_concern;
       }
    }
 
@@ -3129,8 +3147,7 @@ mongoc_collection_find_and_modify_with_opts (
              WIRE_VERSION_HINT_SERVER_SIDE_ERROR ||
           (server_stream->sd->max_wire_version <
               WIRE_VERSION_FIND_AND_MODIFY_HINT &&
-           !mongoc_write_concern_is_acknowledged (
-              appended_opts.writeConcern))) {
+           !mongoc_write_concern_is_acknowledged (write_concern))) {
          bson_set_error (
             error,
             MONGOC_ERROR_COMMAND,
@@ -3152,36 +3169,9 @@ mongoc_collection_find_and_modify_with_opts (
       }
    }
 
-   if (_mongoc_client_session_in_txn (parts.assembled.session) &&
-       appended_opts.writeConcern) {
-      bson_set_error (error,
-                      MONGOC_ERROR_COMMAND,
-                      MONGOC_ERROR_COMMAND_INVALID_ARG,
-                      "Cannot set write concern after starting transaction");
+   if (!mongoc_cmd_parts_set_write_concern (
+          &parts, write_concern, server_stream->sd->max_wire_version, error)) {
       GOTO (done);
-   }
-
-   if (!appended_opts.writeConcern) {
-      if (server_stream->sd->max_wire_version >=
-          WIRE_VERSION_FAM_WRITE_CONCERN) {
-         if (!mongoc_write_concern_is_valid (collection->write_concern)) {
-            bson_set_error (error,
-                            MONGOC_ERROR_COMMAND,
-                            MONGOC_ERROR_COMMAND_INVALID_ARG,
-                            "The write concern is invalid.");
-            GOTO (done);
-         }
-
-         if (mongoc_write_concern_is_acknowledged (collection->write_concern)) {
-            if (!mongoc_cmd_parts_set_write_concern (
-                   &parts,
-                   collection->write_concern,
-                   server_stream->sd->max_wire_version,
-                   error)) {
-               GOTO (done);
-            }
-         }
-      }
    }
 
    parts.assembled.operation_id = ++cluster->operation_id;
