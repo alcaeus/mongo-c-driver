@@ -2356,6 +2356,9 @@ _mongoc_delete_one_or_many (mongoc_collection_t *collection,
    if (!bson_empty (&delete_opts->collation)) {
       command.flags.has_collation = true;
    }
+   if (delete_opts->hint.value_type) {
+      command.flags.has_delete_hint = true;
+   }
 
    _mongoc_collection_write_command_execute_idl (
       &command, collection, &delete_opts->crud, &result);
