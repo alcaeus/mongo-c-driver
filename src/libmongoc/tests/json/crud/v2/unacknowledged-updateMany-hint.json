@@ -18,10 +18,10 @@
       "x": 33
     }
   ],
-  "collection_name": "Updatemany_hint",
+  "collection_name": "UpdateMany_hint",
   "tests": [
     {
-      "description": "Unacknowledged updateMany with hint string",
+      "description": "Unacknowledged updateMany with hint string succeeds on server >= 4.2",
       "operations": [
         {
           "object": "collection",
@@ -44,14 +44,18 @@
             },
             "hint": "_id_"
           },
-          "result": {}
+          "result": {
+            "matchedCount": 0,
+            "modifiedCount": 0,
+            "upsertedCount": 0
+          }
         }
       ],
       "expectations": [
         {
           "command_started_event": {
             "command": {
-              "update": "Updatemany_hint",
+              "update": "UpdateMany_hint",
               "updates": [
                 {
                   "q": {
@@ -75,7 +79,7 @@
       "outcome": {}
     },
     {
-      "description": "Unacknowledged updateMany with hint document",
+      "description": "Unacknowledged updateMany with hint document succeeds on server >= 4.2",
       "operations": [
         {
           "object": "collection",
@@ -100,14 +104,18 @@
               "_id": 1
             }
           },
-          "result": {}
+          "result": {
+            "matchedCount": 0,
+            "modifiedCount": 0,
+            "upsertedCount": 0
+          }
         }
       ],
       "expectations": [
         {
           "command_started_event": {
             "command": {
-              "update": "Updatemany_hint",
+              "update": "UpdateMany_hint",
               "updates": [
                 {
                   "q": {
