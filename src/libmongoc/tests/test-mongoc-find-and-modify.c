@@ -579,7 +579,7 @@ test_find_and_modify_hint (void)
       coll, tmp_bson ("{}"), opts, NULL /* reply */, &error);
    if (test_framework_max_wire_version_at_least (WIRE_VERSION_FIND_AND_MODIFY_HINT)) {
       ASSERT_OR_PRINT (ret, error);
-   } else if (test_framework_max_wire_version_at_least (WIRE_VERSION_HINT_SERVER_SIDE_ERROR)) {
+   } else if (test_framework_max_wire_version_at_least (WIRE_VERSION_UPDATE_HINT)) {
       BSON_ASSERT (!ret);
       BSON_ASSERT (error.domain == MONGOC_ERROR_SERVER);
       /* server error. */
