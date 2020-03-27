@@ -312,8 +312,9 @@ get_result (const bson_t *test, const bson_t *operation, bson_value_t *value)
    if (value) {
       op_name = bson_lookup_utf8 (operation, "name");
       convert_spec_result (op_name, &pre_conversion, value);
-      bson_value_destroy (&pre_conversion);
    }
+
+   bson_value_destroy (&pre_conversion);
 
    return true;
 }
