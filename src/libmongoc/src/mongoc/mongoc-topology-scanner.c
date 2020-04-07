@@ -113,20 +113,30 @@ _add_speculative_authentication (bson_t *cmd, mongoc_topology_scanner_t *ts)
 {
    bson_t auth_cmd;
    bson_error_t error;
+   bool has_auth = false;
+   const char *mechanism = mongoc_uri_get_auth_mechanism(ts->uri);
+   bool requires_auth = mechanism || mongoc_uri_get_username (ts->uri);
 
-   if (strcasecmp (mongoc_uri_get_auth_mechanism (ts->uri), "MONGODB-X509") != 0) {
+   if (!requires_auth) {
       return;
    }
 
-   /* Ignore errors while building authentication document: we proceed with the
-    * handshake as usual and let the subsequent authenticate command fail. */
-   if (!_mongoc_cluster_get_auth_cmd_x509 (ts->uri, ts->ssl_opts, &auth_cmd, &error)) {
-      return;
+   if (!mechanism) {
+      mechanism = "SCRAM-SHA-1";
    }
 
-   BSON_APPEND_UTF8 (&auth_cmd, "db", "$external");
+   if (strcasecmp (mechanism, "MONGODB-X509") == 0) {
+      /* Ignore errors while building authentication document: we proceed with the
+       * handshake as usual and let the subsequent authenticate command fail. */
+      if (_mongoc_cluster_get_auth_cmd_x509 (ts->uri, ts->ssl_opts, &auth_cmd, &error)) {
+         has_auth = true;
+         BSON_APPEND_UTF8 (&auth_cmd, "db", "$external");
+      }
+   }
 
-   BSON_APPEND_DOCUMENT(cmd, "speculativeAuthenticate", &auth_cmd);
+   if (has_auth) {
+      BSON_APPEND_DOCUMENT(cmd, "speculativeAuthenticate", &auth_cmd);
+   }
 }
 
 static bool

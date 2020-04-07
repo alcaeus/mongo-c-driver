@@ -30,8 +30,10 @@
 #include "mock_server/future-functions.h"
 #include "mock_server/mock-server.h"
 
+typedef void (*setup_uri_options_t) (mongoc_uri_t *uri);
+
 static void
-test_mongoc_speculative_auth_request (void)
+_test_mongoc_speculative_auth (setup_uri_options_t setup_uri_options, bool includes_speculative_auth, bson_t *expected_auth_cmd)
 {
    mock_server_t *server;
    mongoc_uri_t *uri;
@@ -40,16 +42,15 @@ test_mongoc_speculative_auth_request (void)
    request_t *request;
    const bson_t *request_doc;
    bson_iter_t iter;
-   bson_iter_t md_iter;
-   const char *val;
 
    server = mock_server_new ();
    mock_server_run (server);
    uri = mongoc_uri_copy (mock_server_get_uri (server));
    mongoc_uri_set_option_as_int32 (uri, MONGOC_URI_HEARTBEATFREQUENCYMS, 500);
 
-   mongoc_uri_set_auth_mechanism (uri, "MONGODB-X509");
-   mongoc_uri_set_username (uri, "CN=myName,OU=myOrgUnit,O=myOrg,L=myLocality,ST=myState,C=myCountry");
+   if (setup_uri_options) {
+      setup_uri_options (uri);
+   }
 
    pool = mongoc_client_pool_new (uri);
 
@@ -61,29 +62,20 @@ test_mongoc_speculative_auth_request (void)
    request_doc = request_get_doc (request, 0);
    ASSERT (request_doc);
    ASSERT (bson_has_field (request_doc, "isMaster"));
-   ASSERT (bson_has_field (request_doc, "speculativeAuthenticate"));
+   ASSERT (bson_has_field (request_doc, "speculativeAuthenticate") == includes_speculative_auth);
 
-   ASSERT (bson_iter_init_find (&iter, request_doc, "speculativeAuthenticate"));
-   ASSERT (bson_iter_recurse (&iter, &md_iter));
 
-   // Assert speculativeAuthenticate document
-   ASSERT (bson_iter_find (&md_iter, "authenticate"));
-   ASSERT (bson_iter_as_int64 (&md_iter) == 1);
+   if (includes_speculative_auth && expected_auth_cmd) {
+      ASSERT (bson_iter_init_find (&iter, request_doc, "speculativeAuthenticate"));
+      bson_t auth_cmd;
+      uint32_t len;
+      const uint8_t *data;
 
-   ASSERT (bson_iter_find (&md_iter, "mechanism"));
-   val = bson_iter_utf8 (&md_iter, NULL);
-   ASSERT (val);
-   ASSERT_CMPSTR (val, "MONGODB-X509");
+      bson_iter_document(&iter, &len, &data);
 
-   ASSERT (bson_iter_find (&md_iter, "user"));
-   val = bson_iter_utf8 (&md_iter, NULL);
-   ASSERT (val);
-   ASSERT_CMPSTR (val, "CN=myName,OU=myOrgUnit,O=myOrg,L=myLocality,ST=myState,C=myCountry");
-
-   ASSERT (bson_iter_find (&md_iter, "db"));
-   val = bson_iter_utf8 (&md_iter, NULL);
-   ASSERT (val);
-   ASSERT_CMPSTR (val, "$external");
+      ASSERT (bson_init_static (&auth_cmd, data, len));
+      ASSERT_CMPJSON (bson_as_canonical_extended_json (&auth_cmd, NULL), bson_as_canonical_extended_json (expected_auth_cmd, NULL));
+   }
 
    // Todo: Include authentication information in response
    mock_server_replies_simple (request, "{'ok': 1, 'ismaster': true}");
@@ -98,10 +90,37 @@ test_mongoc_speculative_auth_request (void)
    mock_server_destroy (server);
 }
 
+static void
+_setup_speculative_auth_x_509 (mongoc_uri_t *uri)
+{
+   mongoc_uri_set_auth_mechanism (uri, "MONGODB-X509");
+   mongoc_uri_set_username (uri, "CN=myName,OU=myOrgUnit,O=myOrg,L=myLocality,ST=myState,C=myCountry");
+}
+
+static void
+test_mongoc_speculative_auth_request_none (void)
+{
+   _test_mongoc_speculative_auth (NULL, false, NULL);
+}
+
+static void
+test_mongoc_speculative_auth_request_x509 (void)
+{
+   _test_mongoc_speculative_auth (_setup_speculative_auth_x_509, true, BCON_NEW (
+         "authenticate", BCON_INT32 (1),
+         "mechanism", BCON_UTF8 ("MONGODB-X509"),
+         "user", BCON_UTF8 ("CN=myName,OU=myOrgUnit,O=myOrg,L=myLocality,ST=myState,C=myCountry"),
+         "db", BCON_UTF8 ("$external")
+   ));
+}
+
 void
 test_speculative_auth_install (TestSuite *suite)
 {
    TestSuite_AddMockServerTest (suite,
-                  "/MongoDB/speculative_auth/request",
-                  test_mongoc_speculative_auth_request);
+                  "/MongoDB/speculative_auth/request_none",
+                  test_mongoc_speculative_auth_request_none);
+   TestSuite_AddMockServerTest (suite,
+                  "/MongoDB/speculative_auth/request_x509",
+                  test_mongoc_speculative_auth_request_x509);
 }
