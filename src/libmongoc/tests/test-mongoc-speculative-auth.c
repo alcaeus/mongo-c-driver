@@ -41,6 +41,7 @@ test_mongoc_speculative_auth_request (void)
    const bson_t *request_doc;
    bson_iter_t iter;
    bson_iter_t md_iter;
+   const char *val;
 
    server = mock_server_new ();
    mock_server_run (server);
@@ -65,7 +66,24 @@ test_mongoc_speculative_auth_request (void)
    ASSERT (bson_iter_init_find (&iter, request_doc, "speculativeAuthenticate"));
    ASSERT (bson_iter_recurse (&iter, &md_iter));
 
-   // Todo: Assert speculativeAuthenticate document
+   // Assert speculativeAuthenticate document
+   ASSERT (bson_iter_find (&md_iter, "authenticate"));
+   ASSERT (bson_iter_as_int64 (&md_iter) == 1);
+
+   ASSERT (bson_iter_find (&md_iter, "mechanism"));
+   val = bson_iter_utf8 (&md_iter, NULL);
+   ASSERT (val);
+   ASSERT_CMPSTR (val, "MONGODB-X509");
+
+   ASSERT (bson_iter_find (&md_iter, "user"));
+   val = bson_iter_utf8 (&md_iter, NULL);
+   ASSERT (val);
+   ASSERT_CMPSTR (val, "CN=myName,OU=myOrgUnit,O=myOrg,L=myLocality,ST=myState,C=myCountry");
+
+   ASSERT (bson_iter_find (&md_iter, "db"));
+   val = bson_iter_utf8 (&md_iter, NULL);
+   ASSERT (val);
+   ASSERT_CMPSTR (val, "$external");
 
    // Todo: Include authentication information in response
    mock_server_replies_simple (request, "{'ok': 1, 'ismaster': true}");
