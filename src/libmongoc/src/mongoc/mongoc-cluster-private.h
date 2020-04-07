@@ -177,6 +177,12 @@ _mongoc_cluster_create_server_stream (mongoc_topology_t *topology,
                                       uint32_t server_id,
                                       mongoc_stream_t *stream,
                                       bson_error_t *error /* OUT */);
+
+bool
+_mongoc_cluster_get_auth_cmd_x509 (const mongoc_uri_t *uri,
+                                   const mongoc_ssl_opt_t *ssl_opts,
+                                   bson_t *cmd /* OUT */,
+                                   bson_error_t *error /* OUT */);
 BSON_END_DECLS
 
 

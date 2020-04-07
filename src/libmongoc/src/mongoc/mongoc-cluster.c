@@ -1223,6 +1223,67 @@ _mongoc_cluster_auth_node_plain (mongoc_cluster_t *cluster,
    return ret;
 }
 
+bool
+_mongoc_cluster_get_auth_cmd_x509 (const mongoc_uri_t *uri,
+                                   const mongoc_ssl_opt_t *ssl_opts,
+                                   bson_t *cmd /* OUT */,
+                                   bson_error_t *error /* OUT */)
+{
+#ifndef MONGOC_ENABLE_SSL
+   bson_set_error (error,
+                   MONGOC_ERROR_CLIENT,
+                   MONGOC_ERROR_CLIENT_AUTHENTICATE,
+                   "The MONGODB-X509 authentication mechanism requires "
+                   "libmongoc built with ENABLE_SSL");
+   return false;
+#else
+   const char *username_from_uri = NULL;
+   char *username_from_subject = NULL;
+
+   BSON_ASSERT (uri);
+
+   username_from_uri = mongoc_uri_get_username (uri);
+   if (username_from_uri) {
+      TRACE ("%s", "X509: got username from URI");
+   } else {
+      if (!ssl_opts || !ssl_opts->pem_file) {
+         bson_set_error (error,
+                         MONGOC_ERROR_CLIENT,
+                         MONGOC_ERROR_CLIENT_AUTHENTICATE,
+                         "cannot determine username for "
+                         "X-509 authentication.");
+         return false;
+      }
+
+      username_from_subject = mongoc_ssl_extract_subject (
+            ssl_opts->pem_file, ssl_opts->pem_pwd);
+      if (!username_from_subject) {
+         bson_set_error (error,
+                         MONGOC_ERROR_CLIENT,
+                         MONGOC_ERROR_CLIENT_AUTHENTICATE,
+                         "No username provided for X509 authentication.");
+         return false;
+      }
+
+      TRACE ("%s", "X509: got username from certificate");
+   }
+
+   bson_init (cmd);
+   BSON_APPEND_INT32 (cmd, "authenticate", 1);
+   BSON_APPEND_UTF8 (cmd, "mechanism", "MONGODB-X509");
+   BSON_APPEND_UTF8 (cmd,
+                     "user",
+                     username_from_uri ? username_from_uri
+                                       : username_from_subject);
+
+   if (username_from_subject) {
+      bson_free (username_from_subject);
+   }
+
+   return true;
+#endif
+}
+
 
 static bool
 _mongoc_cluster_auth_node_x509 (mongoc_cluster_t *cluster,
@@ -1239,8 +1300,6 @@ _mongoc_cluster_auth_node_x509 (mongoc_cluster_t *cluster,
    return false;
 #else
    mongoc_cmd_parts_t parts;
-   const char *username_from_uri = NULL;
-   char *username_from_subject = NULL;
    bson_t cmd;
    bson_t reply;
    bool ret;
@@ -1249,39 +1308,9 @@ _mongoc_cluster_auth_node_x509 (mongoc_cluster_t *cluster,
    BSON_ASSERT (cluster);
    BSON_ASSERT (stream);
 
-   username_from_uri = mongoc_uri_get_username (cluster->uri);
-   if (username_from_uri) {
-      TRACE ("%s", "X509: got username from URI");
-   } else {
-      if (!cluster->client->ssl_opts.pem_file) {
-         bson_set_error (error,
-                         MONGOC_ERROR_CLIENT,
-                         MONGOC_ERROR_CLIENT_AUTHENTICATE,
-                         "cannot determine username for "
-                         "X-509 authentication.");
-         return false;
-      }
-
-      username_from_subject = mongoc_ssl_extract_subject (
-         cluster->client->ssl_opts.pem_file, cluster->client->ssl_opts.pem_pwd);
-      if (!username_from_subject) {
-         bson_set_error (error,
-                         MONGOC_ERROR_CLIENT,
-                         MONGOC_ERROR_CLIENT_AUTHENTICATE,
-                         "No username provided for X509 authentication.");
-         return false;
-      }
-
-      TRACE ("%s", "X509: got username from certificate");
+   if (!_mongoc_cluster_get_auth_cmd_x509 (cluster->uri, &cluster->client->ssl_opts, &cmd, error)) {
+      return false;
    }
-
-   bson_init (&cmd);
-   BSON_APPEND_INT32 (&cmd, "authenticate", 1);
-   BSON_APPEND_UTF8 (&cmd, "mechanism", "MONGODB-X509");
-   BSON_APPEND_UTF8 (&cmd,
-                     "user",
-                     username_from_uri ? username_from_uri
-                                       : username_from_subject);
 
    mongoc_cmd_parts_init (
       &parts, cluster->client, "$external", MONGOC_QUERY_SLAVE_OK, &cmd);
@@ -1295,10 +1324,6 @@ _mongoc_cluster_auth_node_x509 (mongoc_cluster_t *cluster,
       /* error->message is already set */
       error->domain = MONGOC_ERROR_CLIENT;
       error->code = MONGOC_ERROR_CLIENT_AUTHENTICATE;
-   }
-
-   if (username_from_subject) {
-      bson_free (username_from_subject);
    }
 
    bson_destroy (&cmd);
