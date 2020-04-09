@@ -140,7 +140,7 @@ _add_speculative_authentication (bson_t *cmd, mongoc_topology_scanner_t *ts)
 }
 
 static bool
-_build_ismaster_with_handshake (mongoc_topology_scanner_t *ts)
+_build_ismaster_with_handshake (mongoc_topology_scanner_t *ts, bool force_speculative_authentication)
 {
    bson_t *doc = &ts->ismaster_cmd_with_handshake;
    bson_t subdoc;
@@ -158,7 +158,9 @@ _build_ismaster_with_handshake (mongoc_topology_scanner_t *ts)
    res = _mongoc_handshake_build_doc_with_application (&subdoc, ts->appname);
    bson_append_document_end (doc, &subdoc);
 
-   _add_speculative_authentication (doc, ts);
+   if (ts->speculative_authentication || force_speculative_authentication) {
+      _add_speculative_authentication (doc, ts);
+   }
 
    BSON_APPEND_ARRAY_BEGIN (doc, "compression", &subdoc);
    if (ts->uri) {
@@ -183,12 +185,12 @@ _build_ismaster_with_handshake (mongoc_topology_scanner_t *ts)
  * node is added in _mongoc_topology_reconcile_add_nodes, or when running an
  * ismaster directly on a node in _mongoc_stream_run_ismaster. */
 const bson_t *
-_mongoc_topology_scanner_get_ismaster (mongoc_topology_scanner_t *ts)
+_mongoc_topology_scanner_get_ismaster (mongoc_topology_scanner_t *ts, bool force_speculative_authentication)
 {
    /* If this is the first time using the node or if it's the first time
     * using it after a failure, build handshake doc */
    if (bson_empty (&ts->ismaster_cmd_with_handshake)) {
-      ts->handshake_ok_to_send = _build_ismaster_with_handshake (ts);
+      ts->handshake_ok_to_send = _build_ismaster_with_handshake (ts, force_speculative_authentication);
       if (!ts->handshake_ok_to_send) {
          MONGOC_WARNING ("Handshake doc too big, not including in isMaster");
       }
@@ -216,7 +218,7 @@ _begin_ismaster_cmd (mongoc_topology_scanner_node_t *node,
       /* The node's been used before and not failed recently */
       bson_copy_to (&ts->ismaster_cmd, &cmd);
    } else {
-      bson_copy_to (_mongoc_topology_scanner_get_ismaster (ts), &cmd);
+      bson_copy_to (_mongoc_topology_scanner_get_ismaster (ts, false), &cmd);
    }
 
    if (node->ts->negotiate_sasl_supported_mechs &&

@@ -108,6 +108,7 @@ typedef struct mongoc_topology_scanner {
    /* only used by single-threaded clients to negotiate auth mechanisms. */
    bool negotiate_sasl_supported_mechs;
    bool bypass_cooldown;
+   bool speculative_authentication;
 } mongoc_topology_scanner_t;
 
 mongoc_topology_scanner_t *
@@ -175,7 +176,7 @@ mongoc_topology_scanner_node_t *
 mongoc_topology_scanner_get_node (mongoc_topology_scanner_t *ts, uint32_t id);
 
 const bson_t *
-_mongoc_topology_scanner_get_ismaster (mongoc_topology_scanner_t *ts);
+_mongoc_topology_scanner_get_ismaster (mongoc_topology_scanner_t *ts, bool force_speculative_authentication);
 
 bool
 mongoc_topology_scanner_has_node_for_host (mongoc_topology_scanner_t *ts,

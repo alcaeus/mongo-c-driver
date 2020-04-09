@@ -295,6 +295,9 @@ mongoc_topology_new (const mongoc_uri_t *uri, bool single_threaded)
    mongoc_cond_init (&topology->cond_server);
 
    if (single_threaded) {
+      /* single threaded drivers attempt speculative authentication during a topology scan */
+      topology->scanner->speculative_authentication = true;
+
       /* single threaded clients negotiate sasl supported mechanisms during
        * a topology scan. */
       if (_mongoc_uri_requires_auth_negotiation (uri)) {
@@ -1717,11 +1720,11 @@ _mongoc_topology_end_sessions_cmd (mongoc_topology_t *topology, bson_t *cmd)
  *--------------------------------------------------------------------------
  */
 const bson_t *
-_mongoc_topology_get_ismaster (mongoc_topology_t *topology)
+_mongoc_topology_get_ismaster (mongoc_topology_t *topology, bool force_speculative_authentication)
 {
    const bson_t *cmd;
    bson_mutex_lock (&topology->mutex);
-   cmd = _mongoc_topology_scanner_get_ismaster (topology->scanner);
+   cmd = _mongoc_topology_scanner_get_ismaster (topology->scanner, force_speculative_authentication);
    bson_mutex_unlock (&topology->mutex);
    return cmd;
 }
