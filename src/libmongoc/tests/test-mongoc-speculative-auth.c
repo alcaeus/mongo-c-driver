@@ -32,8 +32,44 @@
 
 typedef void (*setup_uri_options_t) (mongoc_uri_t *uri);
 
+/* For single threaded clients, to cause an isMaster to be sent, we must wait
+ * until we're overdue for a heartbeat, and then execute some command */
+static future_t *
+_force_ismaster_with_ping (mongoc_client_t *client, int heartbeat_ms)
+{
+   future_t *future;
+
+   /* Wait until we're overdue to send an isMaster */
+   _mongoc_usleep (heartbeat_ms * 2 * 1000);
+
+   /* Send a ping */
+   future = future_client_command_simple (
+         client, "admin", tmp_bson ("{'ping': 1}"), NULL, NULL, NULL);
+         ASSERT (future);
+   return future;
+}
+
+/* Call after we've dealt with the isMaster sent by
+ * _force_ismaster_with_ping */
 static void
-_test_mongoc_speculative_auth (setup_uri_options_t setup_uri_options, bool includes_speculative_auth, bson_t *expected_auth_cmd)
+_respond_to_ping (future_t *future, mock_server_t *server)
+{
+   request_t *request;
+
+         ASSERT (future);
+
+   request = mock_server_receives_command (
+         server, "admin", MONGOC_QUERY_SLAVE_OK, "{'ping': 1}");
+
+   mock_server_replies_simple (request, "{'ok': 1}");
+
+         ASSERT (future_get_bool (future));
+   future_destroy (future);
+   request_destroy (request);
+}
+
+static void
+_test_mongoc_speculative_auth_pool (setup_uri_options_t setup_uri_options, bool includes_speculative_auth, bson_t *expected_auth_cmd)
 {
    mock_server_t *server;
    mongoc_uri_t *uri;
@@ -62,9 +98,18 @@ _test_mongoc_speculative_auth (setup_uri_options_t setup_uri_options, bool inclu
    request_doc = request_get_doc (request, 0);
    ASSERT (request_doc);
    ASSERT (bson_has_field (request_doc, "isMaster"));
-   ASSERT (bson_has_field (request_doc, "speculativeAuthenticate") == includes_speculative_auth);
 
+   // First isMaster request must not have speculative authentication since we're just scanning the topology
+   ASSERT (!bson_has_field (request_doc, "speculativeAuthenticate") == includes_speculative_auth);
 
+   // Todo: Include authentication information in response
+   mock_server_replies_simple (request, "{'ok': 1, 'ismaster': true}");
+   request_destroy (request);
+
+   // Todo: Run command
+
+   // Second isMaster should use speculative authentication
+   ASSERT (!bson_has_field (request_doc, "speculativeAuthenticate") == includes_speculative_auth);
    if (includes_speculative_auth && expected_auth_cmd) {
       ASSERT (bson_iter_init_find (&iter, request_doc, "speculativeAuthenticate"));
       bson_t auth_cmd;
@@ -86,6 +131,65 @@ _test_mongoc_speculative_auth (setup_uri_options_t setup_uri_options, bool inclu
    /* Cleanup */
    mongoc_client_pool_push (pool, client);
    mongoc_client_pool_destroy (pool);
+   mongoc_uri_destroy (uri);
+   mock_server_destroy (server);
+}
+
+static void
+_test_mongoc_speculative_auth (setup_uri_options_t setup_uri_options, bool includes_speculative_auth, bson_t *expected_auth_cmd)
+{
+   mock_server_t *server;
+   mongoc_uri_t *uri;
+   mongoc_client_t *client;
+   request_t *request;
+   const bson_t *request_doc;
+   bson_iter_t iter;
+   future_t *future;
+   const int heartbeat_ms = 500;
+
+   server = mock_server_new ();
+   mock_server_run (server);
+   uri = mongoc_uri_copy (mock_server_get_uri (server));
+   mongoc_uri_set_option_as_int32 (uri, MONGOC_URI_HEARTBEATFREQUENCYMS, heartbeat_ms);
+
+   if (setup_uri_options) {
+      setup_uri_options (uri);
+   }
+
+   client = mongoc_client_new_from_uri (uri);
+   future = _force_ismaster_with_ping (client, heartbeat_ms);
+
+   request = mock_server_receives_ismaster (server);
+   ASSERT (request);
+   request_doc = request_get_doc (request, 0);
+   ASSERT (request_doc);
+   ASSERT (bson_has_field (request_doc, "isMaster"));
+   ASSERT (bson_has_field (request_doc, "speculativeAuthenticate") == includes_speculative_auth);
+
+   if (includes_speculative_auth && expected_auth_cmd) {
+      ASSERT (bson_iter_init_find (&iter, request_doc, "speculativeAuthenticate"));
+      bson_t auth_cmd;
+      uint32_t len;
+      const uint8_t *data;
+
+      bson_iter_document(&iter, &len, &data);
+
+      ASSERT (bson_init_static (&auth_cmd, data, len));
+      ASSERT_CMPJSON (bson_as_canonical_extended_json (&auth_cmd, NULL), bson_as_canonical_extended_json (expected_auth_cmd, NULL));
+   }
+
+   // Todo: Include authentication information in response
+   mock_server_replies_simple (request, "{'ok': 1, 'ismaster': true, 'minWireVersion': 2, 'maxWireVersion': 5}");
+   request_destroy (request);
+
+   // Currently, we're still checking authentication
+
+   _respond_to_ping (future, server);
+
+   // Todo: Perform authentication cycle
+
+   /* Cleanup */
+   mongoc_client_destroy (client);
    mongoc_uri_destroy (uri);
    mock_server_destroy (server);
 }
