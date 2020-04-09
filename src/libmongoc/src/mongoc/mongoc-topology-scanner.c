@@ -122,7 +122,7 @@ _add_speculative_authentication (bson_t *cmd, mongoc_topology_scanner_t *ts)
    }
 
    if (!mechanism) {
-      mechanism = "SCRAM-SHA-1";
+      mechanism = "SCRAM-SHA-256";
    }
 
    if (strcasecmp (mechanism, "MONGODB-X509") == 0) {
