@@ -136,7 +136,7 @@ _test_mongoc_speculative_auth_pool (setup_uri_options_t setup_uri_options, bool 
 }
 
 static void
-_test_mongoc_speculative_auth (setup_uri_options_t setup_uri_options, bool includes_speculative_auth, bson_t *expected_auth_cmd)
+_test_mongoc_speculative_auth (setup_uri_options_t setup_uri_options, bool includes_speculative_auth, bson_t *expected_auth_cmd, bson_t *speculative_auth_response)
 {
    mock_server_t *server;
    mongoc_uri_t *uri;
@@ -178,15 +178,27 @@ _test_mongoc_speculative_auth (setup_uri_options_t setup_uri_options, bool inclu
       ASSERT_CMPJSON (bson_as_canonical_extended_json (&auth_cmd, NULL), bson_as_canonical_extended_json (expected_auth_cmd, NULL));
    }
 
-   // Todo: Include authentication information in response
-   mock_server_replies_simple (request, "{'ok': 1, 'ismaster': true, 'minWireVersion': 2, 'maxWireVersion': 5}");
+   // Include authentication information in response
+   bson_t *response = BCON_NEW (
+      "ok", BCON_INT32 (1),
+      "ismaster", BCON_BOOL (true),
+      "minWireVersion", BCON_INT32 (2),
+      "maxWireVersion", BCON_INT32 (5)
+   );
+
+   if (speculative_auth_response) {
+      BSON_APPEND_DOCUMENT (response, "speculativeAuthenticate", speculative_auth_response);
+   }
+
+   mock_server_replies_simple (request, bson_as_canonical_extended_json (response, NULL));
+   bson_destroy (response);
    request_destroy (request);
 
-   // Currently, we're still checking authentication
+   if (includes_speculative_auth && ! speculative_auth_response) {
+      // Todo: handle authentication request
+   }
 
    _respond_to_ping (future, server);
-
-   // Todo: Perform authentication cycle
 
    /* Cleanup */
    mongoc_client_destroy (client);
@@ -204,18 +216,26 @@ _setup_speculative_auth_x_509 (mongoc_uri_t *uri)
 static void
 test_mongoc_speculative_auth_request_none (void)
 {
-   _test_mongoc_speculative_auth (NULL, false, NULL);
+   _test_mongoc_speculative_auth (NULL, false, NULL, NULL);
 }
 
 static void
 test_mongoc_speculative_auth_request_x509 (void)
 {
-   _test_mongoc_speculative_auth (_setup_speculative_auth_x_509, true, BCON_NEW (
+   _test_mongoc_speculative_auth (
+      _setup_speculative_auth_x_509,
+      true,
+      BCON_NEW (
          "authenticate", BCON_INT32 (1),
          "mechanism", BCON_UTF8 ("MONGODB-X509"),
          "user", BCON_UTF8 ("CN=myName,OU=myOrgUnit,O=myOrg,L=myLocality,ST=myState,C=myCountry"),
          "db", BCON_UTF8 ("$external")
-   ));
+      ),
+      BCON_NEW (
+         "dbname", BCON_UTF8 ("$external"),
+         "user", BCON_UTF8 ("CN=myName,OU=myOrgUnit,O=myOrg,L=myLocality,ST=myState,C=myCountry")
+      )
+   );
 }
 
 void

@@ -108,21 +108,33 @@ _add_ismaster (bson_t *cmd)
    BSON_APPEND_INT32 (cmd, "isMaster", 1);
 }
 
+static const char*
+_get_auth_mechanism (const mongoc_uri_t *uri)
+{
+   const char *mechanism = mongoc_uri_get_auth_mechanism(uri);
+   bool requires_auth = mechanism || mongoc_uri_get_username (uri);
+
+   if (!requires_auth) {
+      return NULL;
+   }
+
+   if (!mechanism) {
+      return "SCRAM-SHA-256";
+   }
+
+   return mechanism;
+}
+
 static void
 _add_speculative_authentication (bson_t *cmd, mongoc_topology_scanner_t *ts)
 {
    bson_t auth_cmd;
    bson_error_t error;
    bool has_auth = false;
-   const char *mechanism = mongoc_uri_get_auth_mechanism(ts->uri);
-   bool requires_auth = mechanism || mongoc_uri_get_username (ts->uri);
-
-   if (!requires_auth) {
-      return;
-   }
+   const char *mechanism = _get_auth_mechanism (ts->uri);
 
    if (!mechanism) {
-      mechanism = "SCRAM-SHA-256";
+      return;
    }
 
    if (strcasecmp (mechanism, "MONGODB-X509") == 0) {
@@ -473,6 +485,27 @@ mongoc_topology_scanner_has_node_for_host (mongoc_topology_scanner_t *ts,
 }
 
 static void
+_mongoc_topology_scanner_finish_speculative_auth (mongoc_topology_scanner_node_t *node, mongoc_topology_scanner_t *ts, const bson_t *ismaster_response)
+{
+   const char *mechanism = _get_auth_mechanism (ts->uri);
+   bson_iter_t iter;
+
+   if (!mechanism) {
+      return;
+   }
+
+   if (!bson_iter_init_find (&iter, ismaster_response, "speculativeAuthenticate")) {
+      return;
+   }
+
+   if (strcasecmp (mechanism, "MONGODB-X509") == 0) {
+      /* For X509, a successful ismaster with speculativeAuthenticate field
+       * indicates successful auth */
+      node->has_auth = true;
+   }
+}
+
+static void
 _async_connected (mongoc_async_cmd_t *acmd)
 {
    mongoc_topology_scanner_node_t *node =
@@ -515,6 +548,8 @@ _async_success (mongoc_async_cmd_t *acmd,
       _mongoc_handshake_parse_sasl_supported_mechs (
          ismaster_response, &node->sasl_supported_mechs);
    }
+
+   _mongoc_topology_scanner_finish_speculative_auth (node, ts, ismaster_response);
 
    /* mongoc_topology_scanner_cb_t takes rtt_msec, not usec */
    ts->cb (node->id,
