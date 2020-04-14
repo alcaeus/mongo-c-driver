@@ -3155,3 +3155,43 @@ mongoc_cluster_run_opmsg (mongoc_cluster_t *cluster,
 
    return ok;
 }
+
+static const char*
+_get_auth_mechanism (const mongoc_uri_t *uri)
+{
+   const char *mechanism = mongoc_uri_get_auth_mechanism(uri);
+   bool requires_auth = mechanism || mongoc_uri_get_username (uri);
+
+   if (!requires_auth) {
+      return NULL;
+   }
+
+   if (!mechanism) {
+      return "SCRAM-SHA-256";
+   }
+
+   return mechanism;
+}
+
+bool
+_mongoc_cluster_finish_speculative_auth (const mongoc_uri_t *uri, const bson_t *ismaster_response)
+{
+   const char *mechanism = _get_auth_mechanism (uri);
+   bson_iter_t iter;
+
+   if (!mechanism) {
+      return false;
+   }
+
+   if (!bson_iter_init_find (&iter, ismaster_response, "speculativeAuthenticate")) {
+      return false;
+   }
+
+   if (strcasecmp (mechanism, "MONGODB-X509") == 0) {
+      /* For X509, a successful ismaster with speculativeAuthenticate field
+       * indicates successful auth */
+      return true;
+   }
+
+   return false;
+}
