@@ -1720,11 +1720,11 @@ _mongoc_topology_end_sessions_cmd (mongoc_topology_t *topology, bson_t *cmd)
  *--------------------------------------------------------------------------
  */
 const bson_t *
-_mongoc_topology_get_ismaster (mongoc_topology_t *topology, bool force_speculative_authentication)
+_mongoc_topology_get_ismaster (mongoc_topology_t *topology)
 {
    const bson_t *cmd;
    bson_mutex_lock (&topology->mutex);
-   cmd = _mongoc_topology_scanner_get_ismaster (topology->scanner, force_speculative_authentication);
+   cmd = _mongoc_topology_scanner_get_ismaster (topology->scanner);
    bson_mutex_unlock (&topology->mutex);
    return cmd;
 }
