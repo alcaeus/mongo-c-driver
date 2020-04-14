@@ -822,11 +822,17 @@ _mongoc_stream_run_ismaster (mongoc_cluster_t *cluster,
 
    command = _mongoc_topology_get_ismaster (cluster->client->topology);
 
-   if (negotiate_sasl_supported_mechs) {
+   if (cluster->requires_auth || negotiate_sasl_supported_mechs) {
       copied_command = bson_copy (command);
-      _mongoc_handshake_append_sasl_supported_mechs (cluster->uri,
-                                                     copied_command);
       command = copied_command;
+   }
+
+   if (cluster->requires_auth) {
+      _mongoc_topology_scanner_add_speculative_authentication(copied_command, cluster->uri, &cluster->client->ssl_opts);
+   }
+
+   if (negotiate_sasl_supported_mechs) {
+      _mongoc_handshake_append_sasl_supported_mechs (cluster->uri, copied_command);
    }
 
    start = bson_get_monotonic_time ();
@@ -1792,7 +1798,10 @@ _mongoc_cluster_add_node (mongoc_cluster_t *cluster,
                                                  &sasl_supported_mechs);
 
    if (cluster->requires_auth) {
-      if (!_mongoc_cluster_auth_node (
+      /* Complete speculative authentication */
+      bool is_auth = _mongoc_cluster_finish_speculative_auth (cluster->uri, &sd->last_is_master);
+
+      if (!is_auth && !_mongoc_cluster_auth_node (
              cluster, cluster_node->stream, sd, &sasl_supported_mechs, error)) {
          MONGOC_WARNING ("Failed authentication to %s (%s)",
                          host->host_and_port,

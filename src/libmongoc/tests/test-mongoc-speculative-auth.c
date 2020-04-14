@@ -56,20 +56,49 @@ _respond_to_ping (future_t *future, mock_server_t *server)
 {
    request_t *request;
 
-         ASSERT (future);
+   ASSERT (future);
 
    request = mock_server_receives_command (
          server, "admin", MONGOC_QUERY_SLAVE_OK, "{'ping': 1}");
 
+   ASSERT (request);
+
    mock_server_replies_simple (request, "{'ok': 1}");
 
-         ASSERT (future_get_bool (future));
+   ASSERT (future_get_bool (future));
    future_destroy (future);
    request_destroy (request);
 }
 
+static bool
+_auto_ismaster_without_speculative_auth (request_t *request, void *data)
+{
+   const char *response_json = (const char *) data;
+   char *quotes_replaced;
+
+   if (!request->is_command || strcasecmp (request->command_name, "ismaster")) {
+      return false;
+   }
+
+   if (bson_has_field (request_get_doc(request, 0), "speculativeAuthenticate")) {
+      return false;
+   }
+
+   quotes_replaced = single_quotes_to_double (response_json);
+
+   if (mock_server_get_rand_delay (request->server)) {
+      _mongoc_usleep ((int64_t) (rand () % 10) * 1000);
+   }
+
+   mock_server_replies (request, MONGOC_REPLY_NONE, 0, 0, 1, response_json);
+
+   bson_free (quotes_replaced);
+   request_destroy (request);
+   return true;
+}
+
 static void
-_test_mongoc_speculative_auth_pool (setup_uri_options_t setup_uri_options, bool includes_speculative_auth, bson_t *expected_auth_cmd)
+_test_mongoc_speculative_auth_pool (setup_uri_options_t setup_uri_options, bool includes_speculative_auth, bson_t *expected_auth_cmd, bson_t *speculative_auth_response)
 {
    mock_server_t *server;
    mongoc_uri_t *uri;
@@ -78,55 +107,80 @@ _test_mongoc_speculative_auth_pool (setup_uri_options_t setup_uri_options, bool 
    request_t *request;
    const bson_t *request_doc;
    bson_iter_t iter;
+   future_t *future;
+   const int heartbeat_ms = 500;
+
+   mongoc_ssl_opt_t client_ssl_opts = {0};
+   mongoc_ssl_opt_t server_ssl_opts = {0};
+   client_ssl_opts.ca_file = CERT_CA;
+   client_ssl_opts.pem_file = CERT_CLIENT;
+   server_ssl_opts.ca_file = CERT_CA;
+   server_ssl_opts.pem_file = CERT_SERVER;
 
    server = mock_server_new ();
+   mock_server_set_ssl_opts (server, &server_ssl_opts);
+   mock_server_autoresponds (server, _auto_ismaster_without_speculative_auth, "{'ok': 1, 'ismaster': true, 'minWireVersion': 2, 'maxWireVersion': 5}", NULL);
+
    mock_server_run (server);
    uri = mongoc_uri_copy (mock_server_get_uri (server));
-   mongoc_uri_set_option_as_int32 (uri, MONGOC_URI_HEARTBEATFREQUENCYMS, 500);
+   mongoc_uri_set_option_as_int32 (uri, MONGOC_URI_HEARTBEATFREQUENCYMS, heartbeat_ms);
 
    if (setup_uri_options) {
       setup_uri_options (uri);
    }
 
    pool = mongoc_client_pool_new (uri);
+   mongoc_client_pool_set_ssl_opts (pool, &client_ssl_opts);
 
    /* Force topology scanner to start */
    client = mongoc_client_pool_pop (pool);
 
-   request = mock_server_receives_ismaster (server);
-   ASSERT (request);
-   request_doc = request_get_doc (request, 0);
-   ASSERT (request_doc);
-   ASSERT (bson_has_field (request_doc, "isMaster"));
+   future = _force_ismaster_with_ping (client, heartbeat_ms);
 
-   // First isMaster request must not have speculative authentication since we're just scanning the topology
-   ASSERT (!bson_has_field (request_doc, "speculativeAuthenticate") == includes_speculative_auth);
+   // isMaster should use speculative authentication
+   if (includes_speculative_auth) {
+      request = mock_server_receives_ismaster(server);
+      ASSERT (request);
+      request_doc = request_get_doc(request, 0);
+      ASSERT (request_doc);
+      ASSERT (bson_has_field(request_doc, "isMaster"));
+      ASSERT (bson_has_field(request_doc, "speculativeAuthenticate") == includes_speculative_auth);
 
-   // Todo: Include authentication information in response
-   mock_server_replies_simple (request, "{'ok': 1, 'ismaster': true}");
-   request_destroy (request);
+      if (expected_auth_cmd) {
+         ASSERT (bson_iter_init_find(&iter, request_doc, "speculativeAuthenticate"));
+         bson_t auth_cmd;
+         uint32_t len;
+         const uint8_t *data;
 
-   // Todo: Run command
+         bson_iter_document(&iter, &len, &data);
 
-   // Second isMaster should use speculative authentication
-   ASSERT (!bson_has_field (request_doc, "speculativeAuthenticate") == includes_speculative_auth);
-   if (includes_speculative_auth && expected_auth_cmd) {
-      ASSERT (bson_iter_init_find (&iter, request_doc, "speculativeAuthenticate"));
-      bson_t auth_cmd;
-      uint32_t len;
-      const uint8_t *data;
+         ASSERT (bson_init_static(&auth_cmd, data, len));
+         ASSERT_CMPJSON (bson_as_canonical_extended_json(&auth_cmd, NULL),
+                         bson_as_canonical_extended_json(expected_auth_cmd, NULL));
+      }
 
-      bson_iter_document(&iter, &len, &data);
+      // Include authentication information in response
+      bson_t *response = BCON_NEW (
+            "ok", BCON_INT32(1),
+            "ismaster", BCON_BOOL(true),
+            "minWireVersion", BCON_INT32(2),
+            "maxWireVersion", BCON_INT32(5)
+      );
 
-      ASSERT (bson_init_static (&auth_cmd, data, len));
-      ASSERT_CMPJSON (bson_as_canonical_extended_json (&auth_cmd, NULL), bson_as_canonical_extended_json (expected_auth_cmd, NULL));
+      if (speculative_auth_response) {
+         BSON_APPEND_DOCUMENT (response, "speculativeAuthenticate", speculative_auth_response);
+      }
+
+      mock_server_replies_simple(request, bson_as_canonical_extended_json(response, NULL));
+      bson_destroy(response);
+      request_destroy(request);
    }
 
-   // Todo: Include authentication information in response
-   mock_server_replies_simple (request, "{'ok': 1, 'ismaster': true}");
-   request_destroy (request);
+   if (includes_speculative_auth && ! speculative_auth_response) {
+      // Todo: handle authentication request
+   }
 
-   // Todo: Perform authentication cycle
+   _respond_to_ping (future, server);
 
    /* Cleanup */
    mongoc_client_pool_push (pool, client);
@@ -220,9 +274,34 @@ test_mongoc_speculative_auth_request_none (void)
 }
 
 static void
+test_mongoc_speculative_auth_request_none_pool (void)
+{
+   _test_mongoc_speculative_auth_pool (NULL, false, NULL, NULL);
+}
+
+static void
 test_mongoc_speculative_auth_request_x509 (void)
 {
    _test_mongoc_speculative_auth (
+      _setup_speculative_auth_x_509,
+      true,
+      BCON_NEW (
+         "authenticate", BCON_INT32 (1),
+         "mechanism", BCON_UTF8 ("MONGODB-X509"),
+         "user", BCON_UTF8 ("CN=myName,OU=myOrgUnit,O=myOrg,L=myLocality,ST=myState,C=myCountry"),
+         "db", BCON_UTF8 ("$external")
+      ),
+      BCON_NEW (
+         "dbname", BCON_UTF8 ("$external"),
+         "user", BCON_UTF8 ("CN=myName,OU=myOrgUnit,O=myOrg,L=myLocality,ST=myState,C=myCountry")
+      )
+   );
+}
+
+static void
+test_mongoc_speculative_auth_request_x509_pool (void)
+{
+   _test_mongoc_speculative_auth_pool (
       _setup_speculative_auth_x_509,
       true,
       BCON_NEW (
@@ -247,4 +326,10 @@ test_speculative_auth_install (TestSuite *suite)
    TestSuite_AddMockServerTest (suite,
                   "/MongoDB/speculative_auth/request_x509",
                   test_mongoc_speculative_auth_request_x509);
+   TestSuite_AddMockServerTest (suite,
+                  "/MongoDB/speculative_auth_pool/request_none",
+                  test_mongoc_speculative_auth_request_none_pool);
+   TestSuite_AddMockServerTest (suite,
+                  "/MongoDB/speculative_auth_pool/request_x509",
+                  test_mongoc_speculative_auth_request_x509_pool);
 }
