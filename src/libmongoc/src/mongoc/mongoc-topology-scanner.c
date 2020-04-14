@@ -125,13 +125,13 @@ _get_auth_mechanism (const mongoc_uri_t *uri)
    return mechanism;
 }
 
-static void
-_add_speculative_authentication (bson_t *cmd, mongoc_topology_scanner_t *ts)
+void
+_mongoc_topology_scanner_add_speculative_authentication (bson_t *cmd, const mongoc_uri_t *uri, const mongoc_ssl_opt_t *ssl_opts)
 {
    bson_t auth_cmd;
    bson_error_t error;
    bool has_auth = false;
-   const char *mechanism = _get_auth_mechanism (ts->uri);
+   const char *mechanism = _get_auth_mechanism (uri);
 
    if (!mechanism) {
       return;
@@ -140,7 +140,7 @@ _add_speculative_authentication (bson_t *cmd, mongoc_topology_scanner_t *ts)
    if (strcasecmp (mechanism, "MONGODB-X509") == 0) {
       /* Ignore errors while building authentication document: we proceed with the
        * handshake as usual and let the subsequent authenticate command fail. */
-      if (_mongoc_cluster_get_auth_cmd_x509 (ts->uri, ts->ssl_opts, &auth_cmd, &error)) {
+      if (_mongoc_cluster_get_auth_cmd_x509 (uri, ssl_opts, &auth_cmd, &error)) {
          has_auth = true;
          BSON_APPEND_UTF8 (&auth_cmd, "db", "$external");
       }
@@ -171,7 +171,7 @@ _build_ismaster_with_handshake (mongoc_topology_scanner_t *ts)
    bson_append_document_end (doc, &subdoc);
 
    if (ts->speculative_authentication) {
-      _add_speculative_authentication(doc, ts);
+      _mongoc_topology_scanner_add_speculative_authentication(doc, ts->uri, ts->ssl_opts);
    }
 
    BSON_APPEND_ARRAY_BEGIN (doc, "compression", &subdoc);
