@@ -184,6 +184,17 @@ _mongoc_cluster_get_auth_cmd_x509 (const mongoc_uri_t *uri,
                                    bson_t *cmd /* OUT */,
                                    bson_error_t *error /* OUT */);
 
+void
+_mongoc_cluster_init_scram (const mongoc_cluster_t *cluster,
+                            mongoc_scram_t *scram,
+                            mongoc_crypto_hash_algorithm_t algo);
+
+bool
+_mongoc_cluster_get_auth_cmd_scram (mongoc_crypto_hash_algorithm_t algo,
+                                    mongoc_scram_t *scram,
+                                    bson_t *cmd /* out */,
+                                    bson_error_t *error /* OUT */);
+
 bool
 _mongoc_cluster_finish_speculative_auth (const mongoc_uri_t *uri, const bson_t *ismaster_response);
 BSON_END_DECLS

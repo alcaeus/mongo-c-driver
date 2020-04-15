@@ -131,6 +131,22 @@ _mongoc_topology_scanner_add_speculative_authentication (bson_t *cmd, const mong
          has_auth = true;
          BSON_APPEND_UTF8 (&auth_cmd, "db", "$external");
       }
+   } else if (strcasecmp (mechanism, "SCRAM-SHA-1") == 0 || strcasecmp (mechanism, "SCRAM-SHA-256") == 0) {
+      mongoc_crypto_hash_algorithm_t algo = strcasecmp (mechanism, "SCRAM-SHA-1") == 0 ? MONGOC_CRYPTO_ALGORITHM_SHA_1 : MONGOC_CRYPTO_ALGORITHM_SHA_256;
+      mongoc_scram_t scram;
+
+      _mongoc_uri_init_scram (uri, &scram, algo);
+      if (_mongoc_cluster_get_auth_cmd_scram (algo, &scram, &auth_cmd, &error)) {
+         const char *auth_source;
+
+         if (!(auth_source = mongoc_uri_get_auth_source (uri)) ||
+             (*auth_source == '\0')) {
+            auth_source = "admin";
+         }
+
+         has_auth = true;
+         BSON_APPEND_UTF8 (&auth_cmd, "db", auth_source);
+      }
    }
 
    if (has_auth) {

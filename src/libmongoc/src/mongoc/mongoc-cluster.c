@@ -1339,6 +1339,65 @@ _mongoc_cluster_auth_node_x509 (mongoc_cluster_t *cluster,
 #endif
 }
 
+void
+_mongoc_cluster_init_scram (const mongoc_cluster_t *cluster,
+                            mongoc_scram_t *scram,
+                            mongoc_crypto_hash_algorithm_t algo)
+{
+   _mongoc_uri_init_scram (cluster->uri, scram, algo);
+
+   /* Apply previously cached SCRAM secrets if available */
+   if (cluster->scram_cache) {
+      _mongoc_scram_set_cache (scram, cluster->scram_cache);
+   }
+}
+
+bool
+_mongoc_cluster_get_auth_cmd_scram (mongoc_crypto_hash_algorithm_t algo,
+                                    mongoc_scram_t *scram,
+                                    bson_t *cmd /* out */,
+                                    bson_error_t *error /* OUT */)
+{
+#ifndef MONGOC_ENABLE_CRYPTO
+   bson_set_error (error,
+                   MONGOC_ERROR_CLIENT,
+                   MONGOC_ERROR_CLIENT_AUTHENTICATE,
+                   "SCRAM authentication requires "
+                   "libmongoc built with ENABLE_SSL");
+   return false;
+#else
+   uint8_t buf[4096] = {0};
+   uint32_t buflen = 0;
+
+   if (!_mongoc_scram_step (
+         scram, buf, buflen, buf, sizeof buf, &buflen, error)) {
+      return false;
+   }
+
+   BSON_ASSERT (scram->step == 1);
+
+   bson_init (cmd);
+   bson_t options;
+
+   BSON_APPEND_INT32 (cmd, "saslStart", 1);
+   if (algo == MONGOC_CRYPTO_ALGORITHM_SHA_1) {
+      BSON_APPEND_UTF8 (cmd, "mechanism", "SCRAM-SHA-1");
+   } else if (algo == MONGOC_CRYPTO_ALGORITHM_SHA_256) {
+      BSON_APPEND_UTF8 (cmd, "mechanism", "SCRAM-SHA-256");
+   } else {
+      BSON_ASSERT (false);
+   }
+   bson_append_binary (
+         cmd, "payload", 7, BSON_SUBTYPE_BINARY, buf, buflen);
+   BSON_APPEND_INT32 (cmd, "autoAuthorize", 1);
+
+   BSON_APPEND_DOCUMENT_BEGIN (cmd, "options", &options);
+   BSON_APPEND_BOOL (&options, "skipEmptyExchange", true);
+   bson_append_document_end (cmd, &options);
+
+   return true;
+#endif
+}
 
 #ifdef MONGOC_ENABLE_CRYPTO
 static bool
@@ -1371,18 +1430,11 @@ _mongoc_cluster_auth_node_scram (mongoc_cluster_t *cluster,
       auth_source = "admin";
    }
 
-   _mongoc_scram_init (&scram, algo);
-
-   _mongoc_scram_set_pass (&scram, mongoc_uri_get_password (cluster->uri));
-   _mongoc_scram_set_user (&scram, mongoc_uri_get_username (cluster->uri));
-
-   /* Apply previously cached SCRAM secrets if available */
-   if (cluster->scram_cache) {
-      _mongoc_scram_set_cache (&scram, cluster->scram_cache);
-   }
+   _mongoc_cluster_init_scram(cluster, &scram, algo);
 
    for (;;) {
-      if (!_mongoc_scram_step (
+      // First scram step is run in _mongoc_cluster_get_auth_cmd_scram
+      if (scram.step > 0 && !_mongoc_scram_step (
              &scram, buf, buflen, buf, sizeof buf, &buflen, error)) {
          goto failure;
       }
@@ -1391,28 +1443,16 @@ _mongoc_cluster_auth_node_scram (mongoc_cluster_t *cluster,
          break;
       }
 
-      bson_init (&cmd);
-
       if (scram.step == 1) {
-         bson_t options;
-
-         BSON_APPEND_INT32 (&cmd, "saslStart", 1);
-         if (algo == MONGOC_CRYPTO_ALGORITHM_SHA_1) {
-            BSON_APPEND_UTF8 (&cmd, "mechanism", "SCRAM-SHA-1");
-         } else if (algo == MONGOC_CRYPTO_ALGORITHM_SHA_256) {
-            BSON_APPEND_UTF8 (&cmd, "mechanism", "SCRAM-SHA-256");
-         } else {
-            BSON_ASSERT (false);
+         if (!_mongoc_cluster_get_auth_cmd_scram (algo, &scram, &cmd, error)) {
+            /* error->message is already set */
+            error->domain = MONGOC_ERROR_CLIENT;
+            error->code = MONGOC_ERROR_CLIENT_AUTHENTICATE;
+            goto failure;
          }
-         bson_append_binary (
-            &cmd, "payload", 7, BSON_SUBTYPE_BINARY, buf, buflen);
-         BSON_APPEND_INT32 (&cmd, "autoAuthorize", 1);
-
-         BSON_APPEND_DOCUMENT_BEGIN (&cmd, "options", &options);
-         BSON_APPEND_BOOL (&options, "skipEmptyExchange", true);
-         bson_append_document_end (&cmd, &options);
-
       } else {
+         bson_init (&cmd);
+
          BSON_APPEND_INT32 (&cmd, "saslContinue", 1);
          BSON_APPEND_INT32 (&cmd, "conversationId", conv_id);
          bson_append_binary (

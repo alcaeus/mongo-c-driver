@@ -268,6 +268,13 @@ _setup_speculative_auth_x_509 (mongoc_uri_t *uri)
 }
 
 static void
+_setup_speculative_auth_scram (mongoc_uri_t *uri)
+{
+   mongoc_uri_set_username (uri, "sasl");
+   mongoc_uri_set_password (uri, "sasl");
+}
+
+static void
 test_mongoc_speculative_auth_request_none (void)
 {
    _test_mongoc_speculative_auth (NULL, false, NULL, NULL);
@@ -317,6 +324,20 @@ test_mongoc_speculative_auth_request_x509_pool (void)
    );
 }
 
+static void
+test_mongoc_speculative_auth_request_scram (void)
+{
+   _test_mongoc_speculative_auth (
+         _setup_speculative_auth_scram,
+         true,
+         NULL,
+         BCON_NEW (
+            "conversationId", BCON_INT32 (15081984),
+            "payload", BCON_BIN (BSON_SUBTYPE_BINARY, (const uint8_t *) "deadbeef", 8)
+         )
+   );
+}
+
 void
 test_speculative_auth_install (TestSuite *suite)
 {
@@ -326,6 +347,9 @@ test_speculative_auth_install (TestSuite *suite)
    TestSuite_AddMockServerTest (suite,
                   "/MongoDB/speculative_auth/request_x509",
                   test_mongoc_speculative_auth_request_x509);
+   TestSuite_AddMockServerTest (suite,
+                  "/MongoDB/speculative_auth/request_scram",
+                  test_mongoc_speculative_auth_request_scram);
    TestSuite_AddMockServerTest (suite,
                   "/MongoDB/speculative_auth_pool/request_none",
                   test_mongoc_speculative_auth_request_none_pool);
