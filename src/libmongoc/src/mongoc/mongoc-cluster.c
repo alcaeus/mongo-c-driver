@@ -1483,6 +1483,7 @@ _mongoc_cluster_scram_handle_reply (mongoc_scram_t *scram,
                                     bool *done /* out */,
                                     int *conv_id /* out */,
                                     uint8_t *buf /* out */,
+                                    uint32_t bufmax,
                                     uint32_t *buflen /* out */,
                                     bson_error_t *error)
 {
@@ -1533,7 +1534,7 @@ _mongoc_cluster_scram_handle_reply (mongoc_scram_t *scram,
 
    bson_iter_binary (&iter, &btype, buflen, (const uint8_t **) &tmpstr);
 
-   if (*buflen > sizeof buf) {
+   if (*buflen > bufmax) {
       bson_set_error (error,
                       MONGOC_ERROR_CLIENT,
                       MONGOC_ERROR_CLIENT_AUTHENTICATE,
@@ -1559,8 +1560,10 @@ _mongoc_cluster_auth_scram_continue (mongoc_cluster_t *cluster,
    uint32_t buflen = 0;
    int conv_id = 0;
    bool done = false;
+   bson_t reply_local;
 
-   if (!_mongoc_cluster_scram_handle_reply (scram, reply, &done, &conv_id, buf, &buflen, error)) {
+   if (!_mongoc_cluster_scram_handle_reply (
+          scram, reply, &done, &conv_id, buf, sizeof buf, &buflen, error)) {
       return false;
    }
 
@@ -1582,15 +1585,20 @@ _mongoc_cluster_auth_scram_continue (mongoc_cluster_t *cluster,
 
       TRACE ("SCRAM: authenticating (step %d)", scram->step);
 
-      if (!_mongoc_cluster_run_scram_command(cluster, stream, server_id, &cmd, reply, error)) {
+      if (!_mongoc_cluster_run_scram_command (
+             cluster, stream, server_id, &cmd, &reply_local, error)) {
          return false;
       }
 
       bson_destroy (&cmd);
 
-      if (!_mongoc_cluster_scram_handle_reply (scram, reply, &done, &conv_id, buf, &buflen, error)) {
+      if (!_mongoc_cluster_scram_handle_reply (
+             scram, &reply_local, &done, &conv_id, buf, sizeof buf, &buflen, error)) {
+         bson_destroy (&reply_local);
          return false;
       }
+
+      bson_destroy (&reply_local);
    }
 
    TRACE ("%s", "SCRAM: authenticated");
