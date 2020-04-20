@@ -108,8 +108,11 @@ _add_ismaster (bson_t *cmd)
    BSON_APPEND_INT32 (cmd, "isMaster", 1);
 }
 
-void
-_mongoc_topology_scanner_add_speculative_authentication (bson_t *cmd, const mongoc_uri_t *uri, const mongoc_ssl_opt_t *ssl_opts)
+bool
+_mongoc_topology_scanner_add_speculative_authentication (bson_t *cmd,
+                                                         const mongoc_uri_t *uri,
+                                                         const mongoc_ssl_opt_t *ssl_opts,
+                                                         mongoc_scram_t *scram /* out */)
 {
    bson_t auth_cmd;
    bson_error_t error;
@@ -118,7 +121,7 @@ _mongoc_topology_scanner_add_speculative_authentication (bson_t *cmd, const mong
 
    if (!mechanism) {
       if (!mongoc_uri_get_username (uri)) {
-         return;
+         return false;
       }
 
       mechanism = "SCRAM-SHA-256";
@@ -133,10 +136,10 @@ _mongoc_topology_scanner_add_speculative_authentication (bson_t *cmd, const mong
       }
    } else if (strcasecmp (mechanism, "SCRAM-SHA-1") == 0 || strcasecmp (mechanism, "SCRAM-SHA-256") == 0) {
       mongoc_crypto_hash_algorithm_t algo = strcasecmp (mechanism, "SCRAM-SHA-1") == 0 ? MONGOC_CRYPTO_ALGORITHM_SHA_1 : MONGOC_CRYPTO_ALGORITHM_SHA_256;
-      mongoc_scram_t scram;
 
-      _mongoc_uri_init_scram (uri, &scram, algo);
-      if (_mongoc_cluster_get_auth_cmd_scram (algo, &scram, &auth_cmd, &error)) {
+      _mongoc_uri_init_scram (uri, scram, algo);
+
+      if (_mongoc_cluster_get_auth_cmd_scram (algo, scram, &auth_cmd, &error)) {
          const char *auth_source;
 
          if (!(auth_source = mongoc_uri_get_auth_source (uri)) ||
@@ -152,6 +155,8 @@ _mongoc_topology_scanner_add_speculative_authentication (bson_t *cmd, const mong
    if (has_auth) {
       BSON_APPEND_DOCUMENT(cmd, "speculativeAuthenticate", &auth_cmd);
    }
+
+   return has_auth;
 }
 
 static bool
@@ -172,10 +177,6 @@ _build_ismaster_with_handshake (mongoc_topology_scanner_t *ts)
    BSON_APPEND_DOCUMENT_BEGIN (doc, HANDSHAKE_FIELD, &subdoc);
    res = _mongoc_handshake_build_doc_with_application (&subdoc, ts->appname);
    bson_append_document_end (doc, &subdoc);
-
-   if (ts->speculative_authentication) {
-      _mongoc_topology_scanner_add_speculative_authentication(doc, ts->uri, ts->ssl_opts);
-   }
 
    BSON_APPEND_ARRAY_BEGIN (doc, "compression", &subdoc);
    if (ts->uri) {
@@ -239,6 +240,11 @@ _begin_ismaster_cmd (mongoc_topology_scanner_node_t *node,
    if (node->ts->negotiate_sasl_supported_mechs &&
        !node->negotiated_sasl_supported_mechs) {
       _mongoc_handshake_append_sasl_supported_mechs (ts->uri, &cmd);
+   }
+
+   if (node->ts->speculative_authentication && !node->has_auth) {
+      _mongoc_scram_destroy (&node->scram);
+      _mongoc_topology_scanner_add_speculative_authentication(&cmd, ts->uri, ts->ssl_opts, &node->scram);
    }
 
    if (!bson_empty (&ts->cluster_time)) {
@@ -431,6 +437,7 @@ mongoc_topology_scanner_node_destroy (mongoc_topology_scanner_node_t *node,
    if (node->dns_results) {
       freeaddrinfo (node->dns_results);
    }
+   _mongoc_scram_destroy (&node->scram);
    bson_free (node);
 }
 
@@ -529,10 +536,6 @@ _async_success (mongoc_async_cmd_t *acmd,
        !node->negotiated_sasl_supported_mechs) {
       _mongoc_handshake_parse_sasl_supported_mechs (
          ismaster_response, &node->sasl_supported_mechs);
-   }
-
-   if (_mongoc_cluster_finish_speculative_auth(ts->uri, ismaster_response)) {
-      node->has_auth = true;
    }
 
    /* mongoc_topology_scanner_cb_t takes rtt_msec, not usec */

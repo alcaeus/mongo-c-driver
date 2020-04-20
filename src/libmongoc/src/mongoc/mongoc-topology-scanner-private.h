@@ -30,6 +30,8 @@
 
 #ifdef MONGOC_ENABLE_SSL
 #include "mongoc-ssl.h"
+#include "mongoc-scram-private.h"
+
 #endif
 
 BSON_BEGIN_DECLS
@@ -77,6 +79,7 @@ typedef struct mongoc_topology_scanner_node {
     * node. */
    mongoc_handshake_sasl_supported_mechs_t sasl_supported_mechs;
    bool negotiated_sasl_supported_mechs;
+   mongoc_scram_t scram;
 } mongoc_topology_scanner_node_t;
 
 typedef struct mongoc_topology_scanner {
@@ -175,8 +178,11 @@ mongoc_topology_scanner_node_setup (mongoc_topology_scanner_node_t *node,
 mongoc_topology_scanner_node_t *
 mongoc_topology_scanner_get_node (mongoc_topology_scanner_t *ts, uint32_t id);
 
-void
-_mongoc_topology_scanner_add_speculative_authentication (bson_t *cmd, const mongoc_uri_t *uri, const mongoc_ssl_opt_t *ssl_opts);
+bool
+_mongoc_topology_scanner_add_speculative_authentication (bson_t *cmd,
+                                                         const mongoc_uri_t *uri,
+                                                         const mongoc_ssl_opt_t *ssl_opts,
+                                                         mongoc_scram_t *scram /* out */);
 
 const bson_t *
 _mongoc_topology_scanner_get_ismaster (mongoc_topology_scanner_t *ts);

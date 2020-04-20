@@ -802,6 +802,7 @@ _mongoc_stream_run_ismaster (mongoc_cluster_t *cluster,
                              const char *address,
                              uint32_t server_id,
                              bool negotiate_sasl_supported_mechs,
+                             mongoc_scram_t *scram,
                              bson_error_t *error)
 {
    const bson_t *command;
@@ -828,7 +829,7 @@ _mongoc_stream_run_ismaster (mongoc_cluster_t *cluster,
    }
 
    if (cluster->requires_auth) {
-      _mongoc_topology_scanner_add_speculative_authentication(copied_command, cluster->uri, &cluster->client->ssl_opts);
+      _mongoc_topology_scanner_add_speculative_authentication(copied_command, cluster->uri, &cluster->client->ssl_opts, scram);
    }
 
    if (negotiate_sasl_supported_mechs) {
@@ -924,6 +925,7 @@ static mongoc_server_description_t *
 _mongoc_cluster_run_ismaster (mongoc_cluster_t *cluster,
                               mongoc_cluster_node_t *node,
                               uint32_t server_id,
+                              mongoc_scram_t *scram /* OUT */,
                               bson_error_t *error /* OUT */)
 {
    mongoc_server_description_t *sd;
@@ -940,6 +942,7 @@ _mongoc_cluster_run_ismaster (mongoc_cluster_t *cluster,
       node->connection_address,
       server_id,
       _mongoc_uri_requires_auth_negotiation (cluster->uri),
+      scram,
       error);
 
    if (!sd) {
@@ -1884,6 +1887,7 @@ _mongoc_cluster_add_node (mongoc_cluster_t *cluster,
    mongoc_stream_t *stream;
    mongoc_server_description_t *sd;
    mongoc_handshake_sasl_supported_mechs_t sasl_supported_mechs;
+   mongoc_scram_t scram;
 
    ENTRY;
 
@@ -1910,7 +1914,7 @@ _mongoc_cluster_add_node (mongoc_cluster_t *cluster,
    /* take critical fields from a fresh ismaster */
    cluster_node = _mongoc_cluster_node_new (stream, host->host_and_port);
 
-   sd = _mongoc_cluster_run_ismaster (cluster, cluster_node, server_id, error);
+   sd = _mongoc_cluster_run_ismaster (cluster, cluster_node, server_id, &scram, error);
    if (!sd) {
       GOTO (error);
    }
