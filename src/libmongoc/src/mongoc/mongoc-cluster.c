@@ -1371,6 +1371,7 @@ _mongoc_cluster_get_auth_cmd_scram (mongoc_crypto_hash_algorithm_t algo,
 #else
    uint8_t buf[4096] = {0};
    uint32_t buflen = 0;
+   bson_t options;
 
    if (!_mongoc_scram_step (
          scram, buf, buflen, buf, sizeof buf, &buflen, error)) {
@@ -1380,7 +1381,6 @@ _mongoc_cluster_get_auth_cmd_scram (mongoc_crypto_hash_algorithm_t algo,
    BSON_ASSERT (scram->step == 1);
 
    bson_init (cmd);
-   bson_t options;
 
    BSON_APPEND_INT32 (cmd, "saslStart", 1);
    if (algo == MONGOC_CRYPTO_ALGORITHM_SHA_1) {
