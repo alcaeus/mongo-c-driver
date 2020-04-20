@@ -1401,154 +1401,235 @@ _mongoc_cluster_get_auth_cmd_scram (mongoc_crypto_hash_algorithm_t algo,
 
 #ifdef MONGOC_ENABLE_CRYPTO
 static bool
-_mongoc_cluster_auth_node_scram (mongoc_cluster_t *cluster,
-                                 mongoc_stream_t *stream,
-                                 mongoc_server_description_t *sd,
-                                 mongoc_crypto_hash_algorithm_t algo,
-                                 bson_error_t *error)
+_mongoc_cluster_run_scram_command (mongoc_cluster_t *cluster,
+                                   mongoc_stream_t *stream,
+                                   uint32_t server_id,
+                                   const bson_t *cmd,
+                                   bson_t *reply,
+                                   bson_error_t *error)
 {
    mongoc_cmd_parts_t parts;
-   uint32_t buflen = 0;
-   mongoc_scram_t scram;
-   bson_iter_t iter;
-   bool ret = false;
-   const char *tmpstr;
-   const char *auth_source;
-   uint8_t buf[4096] = {0};
-   bson_t cmd;
-   bson_t reply;
-   int conv_id = 0;
-   bson_subtype_t btype;
    mongoc_server_stream_t *server_stream;
-   bool done = false;
+   const char* auth_source;
 
    BSON_ASSERT (cluster);
-   BSON_ASSERT (stream);
 
    if (!(auth_source = mongoc_uri_get_auth_source (cluster->uri)) ||
        (*auth_source == '\0')) {
       auth_source = "admin";
    }
 
-   _mongoc_cluster_init_scram(cluster, &scram, algo);
+   mongoc_cmd_parts_init (
+         &parts, cluster->client, auth_source, MONGOC_QUERY_SLAVE_OK, cmd);
+   parts.prohibit_lsid = true;
+   server_stream = _mongoc_cluster_create_server_stream (
+         cluster->client->topology, server_id, stream, error);
+   BSON_ASSERT (server_stream);
+   if (!mongoc_cluster_run_command_parts (
+         cluster, server_stream, &parts, reply, error)) {
+      mongoc_server_stream_cleanup (server_stream);
+      bson_destroy (reply);
 
-   for (;;) {
-      // First scram step is run in _mongoc_cluster_get_auth_cmd_scram
-      if (scram.step > 0 && !_mongoc_scram_step (
-             &scram, buf, buflen, buf, sizeof buf, &buflen, error)) {
-         goto failure;
+      /* error->message is already set */
+      error->domain = MONGOC_ERROR_CLIENT;
+      error->code = MONGOC_ERROR_CLIENT_AUTHENTICATE;
+
+      return false;
+   }
+
+   mongoc_server_stream_cleanup (server_stream);
+
+   return true;
+}
+
+static bool
+_mongoc_cluster_auth_scram_start (mongoc_cluster_t *cluster,
+                                  mongoc_stream_t *stream,
+                                  uint32_t server_id,
+                                  mongoc_crypto_hash_algorithm_t algo,
+                                  mongoc_scram_t *scram,
+                                  bson_t *reply,
+                                  bson_error_t *error)
+{
+   bson_t cmd;
+
+   BSON_ASSERT (scram->step == 0);
+
+   if (!_mongoc_cluster_get_auth_cmd_scram (algo, scram, &cmd, error)) {
+      /* error->message is already set */
+      error->domain = MONGOC_ERROR_CLIENT;
+      error->code = MONGOC_ERROR_CLIENT_AUTHENTICATE;
+
+      return false;
+   }
+
+   if (!_mongoc_cluster_run_scram_command (cluster, stream, server_id, &cmd, reply, error)) {
+      bson_destroy (&cmd);
+
+      return false;
+   }
+
+   bson_destroy (&cmd);
+
+   return true;
+}
+
+static bool
+_mongoc_cluster_scram_handle_reply (mongoc_scram_t *scram,
+                                    bson_t *reply,
+                                    bool *done /* out */,
+                                    int *conv_id /* out */,
+                                    uint8_t *buf /* out */,
+                                    uint32_t *buflen /* out */,
+                                    bson_error_t *error)
+{
+   bson_iter_t iter;
+   bson_subtype_t btype;
+   const char *tmpstr;
+
+   BSON_ASSERT (scram);
+
+   if (bson_iter_init_find (&iter, reply, "done") &&
+       bson_iter_as_bool (&iter)) {
+      if (scram->step < 2) {
+         /* Prior to step 2, we haven't even received server proof. */
+         bson_set_error (error,
+                         MONGOC_ERROR_CLIENT,
+                         MONGOC_ERROR_CLIENT_AUTHENTICATE,
+                         "Incorrect step for 'done'");
+         return false;
+      }
+      *done = true;
+      if (scram->step >= 3) {
+         return true;
+      }
+   }
+
+   if (!bson_iter_init_find (&iter, reply, "conversationId") ||
+       !BSON_ITER_HOLDS_INT32 (&iter) ||
+       !(*conv_id = bson_iter_int32 (&iter)) ||
+       !bson_iter_init_find (&iter, reply, "payload") ||
+       !BSON_ITER_HOLDS_BINARY (&iter)) {
+      const char *errmsg =
+            "Received invalid SCRAM reply from MongoDB server.";
+
+      MONGOC_DEBUG ("SCRAM: authentication failed");
+
+      if (bson_iter_init_find (&iter, reply, "errmsg") &&
+          BSON_ITER_HOLDS_UTF8 (&iter)) {
+         errmsg = bson_iter_utf8 (&iter, NULL);
       }
 
-      if (done && (scram.step >= 3)) {
+      bson_set_error (error,
+                      MONGOC_ERROR_CLIENT,
+                      MONGOC_ERROR_CLIENT_AUTHENTICATE,
+                      "%s",
+                      errmsg);
+      return false;
+   }
+
+   bson_iter_binary (&iter, &btype, buflen, (const uint8_t **) &tmpstr);
+
+   if (*buflen > sizeof buf) {
+      bson_set_error (error,
+                      MONGOC_ERROR_CLIENT,
+                      MONGOC_ERROR_CLIENT_AUTHENTICATE,
+                      "SCRAM reply from MongoDB is too large.");
+      return false;
+   }
+
+   memcpy (buf, tmpstr, *buflen);
+
+   return true;
+}
+
+static bool
+_mongoc_cluster_auth_scram_continue (mongoc_cluster_t *cluster,
+                                     mongoc_stream_t *stream,
+                                     uint32_t server_id,
+                                     mongoc_scram_t *scram,
+                                     bson_t *reply,
+                                     bson_error_t *error)
+{
+   bson_t cmd;
+   uint8_t buf[4096] = {0};
+   uint32_t buflen = 0;
+   int conv_id = 0;
+   bool done = false;
+
+   if (!_mongoc_cluster_scram_handle_reply (scram, reply, &done, &conv_id, buf, &buflen, error)) {
+      return false;
+   }
+
+   for (;;) {
+      if (!_mongoc_scram_step (scram, buf, buflen, buf, sizeof buf, &buflen, error)) {
+         return false;
+      }
+
+      if (done && (scram->step >= 3)) {
          break;
       }
 
-      if (scram.step == 1) {
-         if (!_mongoc_cluster_get_auth_cmd_scram (algo, &scram, &cmd, error)) {
-            /* error->message is already set */
-            error->domain = MONGOC_ERROR_CLIENT;
-            error->code = MONGOC_ERROR_CLIENT_AUTHENTICATE;
-            goto failure;
-         }
-      } else {
-         bson_init (&cmd);
+      bson_init (&cmd);
 
-         BSON_APPEND_INT32 (&cmd, "saslContinue", 1);
-         BSON_APPEND_INT32 (&cmd, "conversationId", conv_id);
-         bson_append_binary (
+      BSON_APPEND_INT32 (&cmd, "saslContinue", 1);
+      BSON_APPEND_INT32 (&cmd, "conversationId", conv_id);
+      bson_append_binary (
             &cmd, "payload", 7, BSON_SUBTYPE_BINARY, buf, buflen);
+
+      TRACE ("SCRAM: authenticating (step %d)", scram->step);
+
+      if (!_mongoc_cluster_run_scram_command(cluster, stream, server_id, &cmd, reply, error)) {
+         return false;
       }
-
-      TRACE ("SCRAM: authenticating (step %d)", scram.step);
-
-      mongoc_cmd_parts_init (
-         &parts, cluster->client, auth_source, MONGOC_QUERY_SLAVE_OK, &cmd);
-      parts.prohibit_lsid = true;
-      server_stream = _mongoc_cluster_create_server_stream (
-         cluster->client->topology, sd->id, stream, error);
-      if (!mongoc_cluster_run_command_parts (
-             cluster, server_stream, &parts, &reply, error)) {
-         mongoc_server_stream_cleanup (server_stream);
-         bson_destroy (&cmd);
-         bson_destroy (&reply);
-
-         /* error->message is already set */
-         error->domain = MONGOC_ERROR_CLIENT;
-         error->code = MONGOC_ERROR_CLIENT_AUTHENTICATE;
-         goto failure;
-      }
-      mongoc_server_stream_cleanup (server_stream);
 
       bson_destroy (&cmd);
 
-      if (bson_iter_init_find (&iter, &reply, "done") &&
-          bson_iter_as_bool (&iter)) {
-         if (scram.step < 2) {
-            /* Prior to step 2, we haven't even received server proof. */
-            bson_destroy (&reply);
-            bson_set_error (error,
-                            MONGOC_ERROR_CLIENT,
-                            MONGOC_ERROR_CLIENT_AUTHENTICATE,
-                            "Incorrect step for 'done'");
-            goto failure;
-         }
-         done = true;
-         if (scram.step >= 3) {
-            bson_destroy (&reply);
-            break;
-         }
+      if (!_mongoc_cluster_scram_handle_reply (scram, reply, &done, &conv_id, buf, &buflen, error)) {
+         return false;
       }
-
-      if (!bson_iter_init_find (&iter, &reply, "conversationId") ||
-          !BSON_ITER_HOLDS_INT32 (&iter) ||
-          !(conv_id = bson_iter_int32 (&iter)) ||
-          !bson_iter_init_find (&iter, &reply, "payload") ||
-          !BSON_ITER_HOLDS_BINARY (&iter)) {
-         const char *errmsg =
-            "Received invalid SCRAM reply from MongoDB server.";
-
-         MONGOC_DEBUG ("SCRAM: authentication failed");
-
-         if (bson_iter_init_find (&iter, &reply, "errmsg") &&
-             BSON_ITER_HOLDS_UTF8 (&iter)) {
-            errmsg = bson_iter_utf8 (&iter, NULL);
-         }
-
-         bson_set_error (error,
-                         MONGOC_ERROR_CLIENT,
-                         MONGOC_ERROR_CLIENT_AUTHENTICATE,
-                         "%s",
-                         errmsg);
-         bson_destroy (&reply);
-         goto failure;
-      }
-
-      bson_iter_binary (&iter, &btype, &buflen, (const uint8_t **) &tmpstr);
-
-      if (buflen > sizeof buf) {
-         bson_set_error (error,
-                         MONGOC_ERROR_CLIENT,
-                         MONGOC_ERROR_CLIENT_AUTHENTICATE,
-                         "SCRAM reply from MongoDB is too large.");
-         bson_destroy (&reply);
-         goto failure;
-      }
-
-      memcpy (buf, tmpstr, buflen);
-
-      bson_destroy (&reply);
    }
 
    TRACE ("%s", "SCRAM: authenticated");
-
-   ret = true;
 
    /* Save cached SCRAM secrets for future use */
    if (cluster->scram_cache) {
       _mongoc_scram_cache_destroy (cluster->scram_cache);
    }
 
-   cluster->scram_cache = _mongoc_scram_get_cache (&scram);
+   cluster->scram_cache = _mongoc_scram_get_cache (scram);
+
+   return true;
+}
+
+static bool
+_mongoc_cluster_auth_node_scram (mongoc_cluster_t *cluster,
+                                 mongoc_stream_t *stream,
+                                 uint32_t server_id,
+                                 mongoc_crypto_hash_algorithm_t algo,
+                                 bson_error_t *error)
+{
+   mongoc_scram_t scram;
+   bool ret = false;
+   bson_t reply;
+
+   BSON_ASSERT (cluster);
+
+   _mongoc_cluster_init_scram(cluster, &scram, algo);
+
+   if (!_mongoc_cluster_auth_scram_start (cluster, stream, server_id, algo, &scram, &reply, error)) {
+      goto failure;
+   }
+
+   if (!_mongoc_cluster_auth_scram_continue (cluster, stream, server_id, &scram, &reply, error)) {
+      bson_destroy (&reply);
+
+      goto failure;
+   }
+
+   TRACE ("%s", "SCRAM: authenticated");
+
+   ret = true;
 
 failure:
    _mongoc_scram_destroy (&scram);
@@ -1572,7 +1653,7 @@ _mongoc_cluster_auth_node_scram_sha_1 (mongoc_cluster_t *cluster,
    return false;
 #else
    return _mongoc_cluster_auth_node_scram (
-      cluster, stream, sd, MONGOC_CRYPTO_ALGORITHM_SHA_1, error);
+      cluster, stream, sd->id, MONGOC_CRYPTO_ALGORITHM_SHA_1, error);
 #endif
 }
 
@@ -1591,7 +1672,7 @@ _mongoc_cluster_auth_node_scram_sha_256 (mongoc_cluster_t *cluster,
    return false;
 #else
    return _mongoc_cluster_auth_node_scram (
-      cluster, stream, sd, MONGOC_CRYPTO_ALGORITHM_SHA_256, error);
+      cluster, stream, sd->id, MONGOC_CRYPTO_ALGORITHM_SHA_256, error);
 #endif
 }
 
