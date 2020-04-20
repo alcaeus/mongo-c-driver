@@ -145,6 +145,8 @@ _test_mongoc_speculative_auth (bool pooled,
 
       /* Force topology scanner to start */
       client = mongoc_client_pool_pop (pool);
+      /* suppress the auth failure logs from pooled clients. */
+      capture_logs (true);
    } else {
       client = mongoc_client_new_from_uri (uri);
       mongoc_client_set_ssl_opts (client, &client_ssl_opts);
