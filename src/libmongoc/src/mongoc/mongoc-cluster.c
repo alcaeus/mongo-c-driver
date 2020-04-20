@@ -1860,6 +1860,68 @@ _mongoc_cluster_node_new (mongoc_stream_t *stream,
    return node;
 }
 
+static const char*
+_get_auth_mechanism (const mongoc_uri_t *uri)
+{
+   const char *mechanism = mongoc_uri_get_auth_mechanism(uri);
+   bool requires_auth = mechanism || mongoc_uri_get_username (uri);
+
+   if (!requires_auth) {
+      return NULL;
+   }
+
+   if (!mechanism) {
+      return "SCRAM-SHA-256";
+   }
+
+   return mechanism;
+}
+
+static bool
+_mongoc_cluster_finish_speculative_auth (mongoc_cluster_t *cluster,
+                                         mongoc_stream_t *stream,
+                                         mongoc_server_description_t *sd,
+                                         mongoc_scram_t *scram,
+                                         bson_error_t *error)
+{
+   const char *mechanism = _get_auth_mechanism (cluster->uri);
+   bson_iter_t iter;
+   bson_t authentication_response;
+   uint32_t data_len;
+   const uint8_t *data;
+
+   BSON_ASSERT (sd);
+
+   if (!mechanism) {
+      return false;
+   }
+
+   if (!bson_iter_init_find (&iter, &sd->last_is_master, "speculativeAuthenticate")) {
+      return false;
+   }
+
+   bson_iter_document (&iter, &data_len, &data);
+   bson_init_static (&authentication_response, data, data_len);
+
+#ifdef MONGOC_ENABLE_SSL
+   if (strcasecmp (mechanism, "MONGODB-X509") == 0) {
+      /* For X509, a successful ismaster with speculativeAuthenticate field
+       * indicates successful auth */
+      return true;
+   }
+#endif
+
+#ifdef MONGOC_ENABLE_CRYPTO
+   if (strcasecmp (mechanism, "SCRAM-SHA-1") == 0 || strcasecmp (mechanism, "SCRAM-SHA-256") == 0) {
+      if (_mongoc_cluster_auth_scram_continue (cluster, stream, sd->id, scram, &authentication_response, error)) {
+         return true;
+      }
+   }
+#endif
+
+   return false;
+}
+
 /*
  *--------------------------------------------------------------------------
  *
@@ -1924,7 +1986,7 @@ _mongoc_cluster_add_node (mongoc_cluster_t *cluster,
 
    if (cluster->requires_auth) {
       /* Complete speculative authentication */
-      bool is_auth = _mongoc_cluster_finish_speculative_auth (cluster->uri, &sd->last_is_master);
+      bool is_auth = _mongoc_cluster_finish_speculative_auth (cluster, stream, sd, &scram, error);
 
       if (!is_auth && !_mongoc_cluster_auth_node (
              cluster, cluster_node->stream, sd, &sasl_supported_mechs, error)) {
@@ -2207,7 +2269,10 @@ mongoc_cluster_fetch_stream_single (mongoc_cluster_t *cluster,
 
    /* stream open but not auth'ed: first use since connect or reconnect */
    if (cluster->requires_auth && !scanner_node->has_auth) {
-      if (!_mongoc_cluster_auth_node (cluster,
+      /* Complete speculative authentication */
+      bool has_speculative_auth = _mongoc_cluster_finish_speculative_auth (cluster, scanner_node->stream, sd, &scanner_node->scram, &sd->error);
+
+      if (!has_speculative_auth && !_mongoc_cluster_auth_node (cluster,
                                       scanner_node->stream,
                                       sd,
                                       &scanner_node->sasl_supported_mechs,
@@ -3288,44 +3353,4 @@ mongoc_cluster_run_opmsg (mongoc_cluster_t *cluster,
    bson_free (output);
 
    return ok;
-}
-
-static const char*
-_get_auth_mechanism (const mongoc_uri_t *uri)
-{
-   const char *mechanism = mongoc_uri_get_auth_mechanism(uri);
-   bool requires_auth = mechanism || mongoc_uri_get_username (uri);
-
-   if (!requires_auth) {
-      return NULL;
-   }
-
-   if (!mechanism) {
-      return "SCRAM-SHA-256";
-   }
-
-   return mechanism;
-}
-
-bool
-_mongoc_cluster_finish_speculative_auth (const mongoc_uri_t *uri, const bson_t *ismaster_response)
-{
-   const char *mechanism = _get_auth_mechanism (uri);
-   bson_iter_t iter;
-
-   if (!mechanism) {
-      return false;
-   }
-
-   if (!bson_iter_init_find (&iter, ismaster_response, "speculativeAuthenticate")) {
-      return false;
-   }
-
-   if (strcasecmp (mechanism, "MONGODB-X509") == 0) {
-      /* For X509, a successful ismaster with speculativeAuthenticate field
-       * indicates successful auth */
-      return true;
-   }
-
-   return false;
 }
