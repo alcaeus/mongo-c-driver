@@ -115,8 +115,6 @@ _test_mongoc_speculative_auth (bool pooled,
    mongoc_uri_t *uri;
    mongoc_client_t *client;
    mongoc_client_pool_t *pool = NULL;
-   request_t *request;
-   const bson_t *request_doc;
    bson_iter_t iter;
    future_t *future;
    const int heartbeat_ms = 500;
@@ -155,6 +153,10 @@ _test_mongoc_speculative_auth (bool pooled,
    future = _force_ismaster_with_ping (client, heartbeat_ms);
 
    if (includes_speculative_auth) {
+      request_t *request;
+      const bson_t *request_doc;
+      bson_t *response;
+
       request = mock_server_receives_ismaster (server);
       ASSERT (request);
       request_doc = request_get_doc (request, 0);
@@ -163,24 +165,28 @@ _test_mongoc_speculative_auth (bool pooled,
       ASSERT (bson_has_field (request_doc, "speculativeAuthenticate") == includes_speculative_auth);
 
       if (compare_auth_command) {
-         ASSERT (bson_iter_init_find (&iter, request_doc, "speculativeAuthenticate"));
          bson_t auth_cmd;
          uint32_t len;
          const uint8_t *data;
 
-         bson_iter_document(&iter, &len, &data);
+         ASSERT (bson_iter_init_find (
+            &iter, request_doc, "speculativeAuthenticate"));
+
+         bson_iter_document (&iter, &len, &data);
 
          ASSERT (bson_init_static (&auth_cmd, data, len));
          compare_auth_command (&auth_cmd);
       }
 
       // Include authentication information in response
-      bson_t *response = BCON_NEW (
-         "ok", BCON_INT32 (1),
-         "ismaster", BCON_BOOL (true),
-         "minWireVersion", BCON_INT32 (2),
-         "maxWireVersion", BCON_INT32 (5)
-      );
+      response = BCON_NEW ("ok",
+                           BCON_INT32 (1),
+                           "ismaster",
+                           BCON_BOOL (true),
+                           "minWireVersion",
+                           BCON_INT32 (2),
+                           "maxWireVersion",
+                           BCON_INT32 (5));
 
       if (speculative_auth_response) {
          BSON_APPEND_DOCUMENT (response, "speculativeAuthenticate", speculative_auth_response);
@@ -190,7 +196,6 @@ _test_mongoc_speculative_auth (bool pooled,
       bson_destroy (response);
       request_destroy (request);
    }
-
 
    if (post_ismaster_commands) {
       post_ismaster_commands (server);
