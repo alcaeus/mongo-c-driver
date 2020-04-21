@@ -37,6 +37,7 @@
 #include "mongoc-uri-private.h"
 #include "mongoc-cluster-private.h"
 #include "mongoc-client-private.h"
+#include "mongoc-util-private.h"
 
 #undef MONGOC_LOG_DOMAIN
 #define MONGOC_LOG_DOMAIN "topology_scanner"
