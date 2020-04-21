@@ -1931,7 +1931,8 @@ _mongoc_cluster_finish_speculative_auth (mongoc_cluster_t *cluster,
 #ifdef MONGOC_ENABLE_CRYPTO
    if (strcasecmp (mechanism, "SCRAM-SHA-1") == 0 ||
        strcasecmp (mechanism, "SCRAM-SHA-256") == 0) {
-      if (_mongoc_cluster_auth_scram_continue (
+      if (scram->step == 1 &&
+          _mongoc_cluster_auth_scram_continue (
              cluster, stream, sd->id, scram, &authentication_response, error)) {
          return true;
       }
@@ -2292,13 +2293,8 @@ mongoc_cluster_fetch_stream_single (mongoc_cluster_t *cluster,
    /* stream open but not auth'ed: first use since connect or reconnect */
    if (cluster->requires_auth && !scanner_node->has_auth) {
       /* Complete speculative authentication */
-      bool has_speculative_auth =
-         scanner_node->scram.step == 1 &&
-         _mongoc_cluster_finish_speculative_auth (cluster,
-                                                  scanner_node->stream,
-                                                  sd,
-                                                  &scanner_node->scram,
-                                                  &sd->error);
+      bool has_speculative_auth = _mongoc_cluster_finish_speculative_auth (
+         cluster, scanner_node->stream, sd, &scanner_node->scram, &sd->error);
 
 #ifdef MONGOC_ENABLE_CRYPTO
       _mongoc_scram_destroy (&scanner_node->scram);
