@@ -36,6 +36,7 @@
 #include "mongoc-write-concern.h"
 #include "mongoc-scram-private.h"
 #include "mongoc-cmd-private.h"
+#include "mongoc-crypto-private.h"
 
 BSON_BEGIN_DECLS
 

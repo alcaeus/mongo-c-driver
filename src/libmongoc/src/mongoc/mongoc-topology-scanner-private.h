@@ -27,12 +27,9 @@
 #include "mongoc-handshake-private.h"
 #include "mongoc-host-list.h"
 #include "mongoc-apm-private.h"
-
-#ifdef MONGOC_ENABLE_SSL
-#include "mongoc-ssl.h"
 #include "mongoc-scram-private.h"
-
-#endif
+#include "mongoc-ssl.h"
+#include "mongoc-crypto-private.h"
 
 BSON_BEGIN_DECLS
 
