@@ -1398,6 +1398,8 @@ _mongoc_cluster_get_auth_cmd_scram (mongoc_crypto_hash_algorithm_t algo,
    BSON_APPEND_BOOL (&options, "skipEmptyExchange", true);
    bson_append_document_end (cmd, &options);
 
+   bson_destroy (&options);
+
    return true;
 }
 
