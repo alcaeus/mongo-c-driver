@@ -69,7 +69,9 @@ mongoc_uri_validate_srv_result (const mongoc_uri_t *uri,
                                 bson_error_t *error);
 
 void
-_mongoc_uri_init_scram (const mongoc_uri_t *uri, mongoc_scram_t *scram, mongoc_crypto_hash_algorithm_t algo);
+_mongoc_uri_init_scram (const mongoc_uri_t *uri,
+                        mongoc_scram_t *scram,
+                        mongoc_crypto_hash_algorithm_t algo);
 
 BSON_END_DECLS
 

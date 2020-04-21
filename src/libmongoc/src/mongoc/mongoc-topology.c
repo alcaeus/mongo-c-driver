@@ -295,7 +295,8 @@ mongoc_topology_new (const mongoc_uri_t *uri, bool single_threaded)
    mongoc_cond_init (&topology->cond_server);
 
    if (single_threaded) {
-      /* single threaded drivers attempt speculative authentication during a topology scan */
+      /* single threaded drivers attempt speculative authentication during a
+       * topology scan */
       topology->scanner->speculative_authentication = true;
 
       /* single threaded clients negotiate sasl supported mechanisms during

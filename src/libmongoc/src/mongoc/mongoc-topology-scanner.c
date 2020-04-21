@@ -109,15 +109,16 @@ _add_ismaster (bson_t *cmd)
 }
 
 bool
-_mongoc_topology_scanner_add_speculative_authentication (bson_t *cmd,
-                                                         const mongoc_uri_t *uri,
-                                                         const mongoc_ssl_opt_t *ssl_opts,
-                                                         mongoc_scram_t *scram /* out */)
+_mongoc_topology_scanner_add_speculative_authentication (
+   bson_t *cmd,
+   const mongoc_uri_t *uri,
+   const mongoc_ssl_opt_t *ssl_opts,
+   mongoc_scram_t *scram /* out */)
 {
    bson_t auth_cmd;
    bson_error_t error;
    bool has_auth = false;
-   const char *mechanism = mongoc_uri_get_auth_mechanism(uri);
+   const char *mechanism = mongoc_uri_get_auth_mechanism (uri);
 
    if (!mechanism) {
       if (!mongoc_uri_get_username (uri)) {
@@ -128,14 +129,20 @@ _mongoc_topology_scanner_add_speculative_authentication (bson_t *cmd,
    }
 
    if (strcasecmp (mechanism, "MONGODB-X509") == 0) {
-      /* Ignore errors while building authentication document: we proceed with the
-       * handshake as usual and let the subsequent authenticate command fail. */
-      if (_mongoc_cluster_get_auth_cmd_x509 (uri, ssl_opts, &auth_cmd, &error)) {
+      /* Ignore errors while building authentication document: we proceed with
+       * the handshake as usual and let the subsequent authenticate command
+       * fail. */
+      if (_mongoc_cluster_get_auth_cmd_x509 (
+             uri, ssl_opts, &auth_cmd, &error)) {
          has_auth = true;
          BSON_APPEND_UTF8 (&auth_cmd, "db", "$external");
       }
-   } else if (strcasecmp (mechanism, "SCRAM-SHA-1") == 0 || strcasecmp (mechanism, "SCRAM-SHA-256") == 0) {
-      mongoc_crypto_hash_algorithm_t algo = strcasecmp (mechanism, "SCRAM-SHA-1") == 0 ? MONGOC_CRYPTO_ALGORITHM_SHA_1 : MONGOC_CRYPTO_ALGORITHM_SHA_256;
+   } else if (strcasecmp (mechanism, "SCRAM-SHA-1") == 0 ||
+              strcasecmp (mechanism, "SCRAM-SHA-256") == 0) {
+      mongoc_crypto_hash_algorithm_t algo =
+         strcasecmp (mechanism, "SCRAM-SHA-1") == 0
+            ? MONGOC_CRYPTO_ALGORITHM_SHA_1
+            : MONGOC_CRYPTO_ALGORITHM_SHA_256;
 
       _mongoc_uri_init_scram (uri, scram, algo);
 
@@ -153,7 +160,7 @@ _mongoc_topology_scanner_add_speculative_authentication (bson_t *cmd,
    }
 
    if (has_auth) {
-      BSON_APPEND_DOCUMENT(cmd, "speculativeAuthenticate", &auth_cmd);
+      BSON_APPEND_DOCUMENT (cmd, "speculativeAuthenticate", &auth_cmd);
    }
 
    return has_auth;
@@ -242,8 +249,10 @@ _begin_ismaster_cmd (mongoc_topology_scanner_node_t *node,
       _mongoc_handshake_append_sasl_supported_mechs (ts->uri, &cmd);
    }
 
-   if (node->ts->speculative_authentication && !node->has_auth && node->scram.step == 0) {
-      _mongoc_topology_scanner_add_speculative_authentication(&cmd, ts->uri, ts->ssl_opts, &node->scram);
+   if (node->ts->speculative_authentication && !node->has_auth &&
+       node->scram.step == 0) {
+      _mongoc_topology_scanner_add_speculative_authentication (
+         &cmd, ts->uri, ts->ssl_opts, &node->scram);
    }
 
    if (!bson_empty (&ts->cluster_time)) {

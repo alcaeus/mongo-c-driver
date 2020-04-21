@@ -829,11 +829,13 @@ _mongoc_stream_run_ismaster (mongoc_cluster_t *cluster,
    }
 
    if (cluster->requires_auth) {
-      _mongoc_topology_scanner_add_speculative_authentication(copied_command, cluster->uri, &cluster->client->ssl_opts, scram);
+      _mongoc_topology_scanner_add_speculative_authentication (
+         copied_command, cluster->uri, &cluster->client->ssl_opts, scram);
    }
 
    if (negotiate_sasl_supported_mechs) {
-      _mongoc_handshake_append_sasl_supported_mechs (cluster->uri, copied_command);
+      _mongoc_handshake_append_sasl_supported_mechs (cluster->uri,
+                                                     copied_command);
    }
 
    start = bson_get_monotonic_time ();
@@ -1264,8 +1266,8 @@ _mongoc_cluster_get_auth_cmd_x509 (const mongoc_uri_t *uri,
          return false;
       }
 
-      username_from_subject = mongoc_ssl_extract_subject (
-            ssl_opts->pem_file, ssl_opts->pem_pwd);
+      username_from_subject =
+         mongoc_ssl_extract_subject (ssl_opts->pem_file, ssl_opts->pem_pwd);
       if (!username_from_subject) {
          bson_set_error (error,
                          MONGOC_ERROR_CLIENT,
@@ -1317,7 +1319,8 @@ _mongoc_cluster_auth_node_x509 (mongoc_cluster_t *cluster,
    BSON_ASSERT (cluster);
    BSON_ASSERT (stream);
 
-   if (!_mongoc_cluster_get_auth_cmd_x509 (cluster->uri, &cluster->client->ssl_opts, &cmd, error)) {
+   if (!_mongoc_cluster_get_auth_cmd_x509 (
+          cluster->uri, &cluster->client->ssl_opts, &cmd, error)) {
       return false;
    }
 
@@ -1374,7 +1377,7 @@ _mongoc_cluster_get_auth_cmd_scram (mongoc_crypto_hash_algorithm_t algo,
    bson_t options;
 
    if (!_mongoc_scram_step (
-         scram, buf, buflen, buf, sizeof buf, &buflen, error)) {
+          scram, buf, buflen, buf, sizeof buf, &buflen, error)) {
       return false;
    }
 
@@ -1390,8 +1393,7 @@ _mongoc_cluster_get_auth_cmd_scram (mongoc_crypto_hash_algorithm_t algo,
    } else {
       BSON_ASSERT (false);
    }
-   bson_append_binary (
-         cmd, "payload", 7, BSON_SUBTYPE_BINARY, buf, buflen);
+   bson_append_binary (cmd, "payload", 7, BSON_SUBTYPE_BINARY, buf, buflen);
    BSON_APPEND_INT32 (cmd, "autoAuthorize", 1);
 
    BSON_APPEND_DOCUMENT_BEGIN (cmd, "options", &options);
@@ -1413,7 +1415,7 @@ _mongoc_cluster_run_scram_command (mongoc_cluster_t *cluster,
 {
    mongoc_cmd_parts_t parts;
    mongoc_server_stream_t *server_stream;
-   const char* auth_source;
+   const char *auth_source;
 
    BSON_ASSERT (cluster);
 
@@ -1423,13 +1425,13 @@ _mongoc_cluster_run_scram_command (mongoc_cluster_t *cluster,
    }
 
    mongoc_cmd_parts_init (
-         &parts, cluster->client, auth_source, MONGOC_QUERY_SLAVE_OK, cmd);
+      &parts, cluster->client, auth_source, MONGOC_QUERY_SLAVE_OK, cmd);
    parts.prohibit_lsid = true;
    server_stream = _mongoc_cluster_create_server_stream (
-         cluster->client->topology, server_id, stream, error);
+      cluster->client->topology, server_id, stream, error);
    BSON_ASSERT (server_stream);
    if (!mongoc_cluster_run_command_parts (
-         cluster, server_stream, &parts, reply, error)) {
+          cluster, server_stream, &parts, reply, error)) {
       mongoc_server_stream_cleanup (server_stream);
       bson_destroy (reply);
 
@@ -1466,7 +1468,8 @@ _mongoc_cluster_auth_scram_start (mongoc_cluster_t *cluster,
       return false;
    }
 
-   if (!_mongoc_cluster_run_scram_command (cluster, stream, server_id, &cmd, reply, error)) {
+   if (!_mongoc_cluster_run_scram_command (
+          cluster, stream, server_id, &cmd, reply, error)) {
       bson_destroy (&cmd);
 
       return false;
@@ -1514,8 +1517,7 @@ _mongoc_cluster_scram_handle_reply (mongoc_scram_t *scram,
        !(*conv_id = bson_iter_int32 (&iter)) ||
        !bson_iter_init_find (&iter, reply, "payload") ||
        !BSON_ITER_HOLDS_BINARY (&iter)) {
-      const char *errmsg =
-            "Received invalid SCRAM reply from MongoDB server.";
+      const char *errmsg = "Received invalid SCRAM reply from MongoDB server.";
 
       MONGOC_DEBUG ("SCRAM: authentication failed");
 
@@ -1568,7 +1570,8 @@ _mongoc_cluster_auth_scram_continue (mongoc_cluster_t *cluster,
    }
 
    for (;;) {
-      if (!_mongoc_scram_step (scram, buf, buflen, buf, sizeof buf, &buflen, error)) {
+      if (!_mongoc_scram_step (
+             scram, buf, buflen, buf, sizeof buf, &buflen, error)) {
          return false;
       }
 
@@ -1580,8 +1583,7 @@ _mongoc_cluster_auth_scram_continue (mongoc_cluster_t *cluster,
 
       BSON_APPEND_INT32 (&cmd, "saslContinue", 1);
       BSON_APPEND_INT32 (&cmd, "conversationId", conv_id);
-      bson_append_binary (
-            &cmd, "payload", 7, BSON_SUBTYPE_BINARY, buf, buflen);
+      bson_append_binary (&cmd, "payload", 7, BSON_SUBTYPE_BINARY, buf, buflen);
 
       TRACE ("SCRAM: authenticating (step %d)", scram->step);
 
@@ -1592,8 +1594,14 @@ _mongoc_cluster_auth_scram_continue (mongoc_cluster_t *cluster,
 
       bson_destroy (&cmd);
 
-      if (!_mongoc_cluster_scram_handle_reply (
-             scram, &reply_local, &done, &conv_id, buf, sizeof buf, &buflen, error)) {
+      if (!_mongoc_cluster_scram_handle_reply (scram,
+                                               &reply_local,
+                                               &done,
+                                               &conv_id,
+                                               buf,
+                                               sizeof buf,
+                                               &buflen,
+                                               error)) {
          bson_destroy (&reply_local);
          return false;
       }
@@ -1626,13 +1634,15 @@ _mongoc_cluster_auth_node_scram (mongoc_cluster_t *cluster,
 
    BSON_ASSERT (cluster);
 
-   _mongoc_cluster_init_scram(cluster, &scram, algo);
+   _mongoc_cluster_init_scram (cluster, &scram, algo);
 
-   if (!_mongoc_cluster_auth_scram_start (cluster, stream, server_id, algo, &scram, &reply, error)) {
+   if (!_mongoc_cluster_auth_scram_start (
+          cluster, stream, server_id, algo, &scram, &reply, error)) {
       goto failure;
    }
 
-   if (!_mongoc_cluster_auth_scram_continue (cluster, stream, server_id, &scram, &reply, error)) {
+   if (!_mongoc_cluster_auth_scram_continue (
+          cluster, stream, server_id, &scram, &reply, error)) {
       bson_destroy (&reply);
 
       goto failure;
@@ -1868,10 +1878,10 @@ _mongoc_cluster_node_new (mongoc_stream_t *stream,
    return node;
 }
 
-static const char*
+static const char *
 _get_auth_mechanism (const mongoc_uri_t *uri)
 {
-   const char *mechanism = mongoc_uri_get_auth_mechanism(uri);
+   const char *mechanism = mongoc_uri_get_auth_mechanism (uri);
    bool requires_auth = mechanism || mongoc_uri_get_username (uri);
 
    if (!requires_auth) {
@@ -1904,7 +1914,8 @@ _mongoc_cluster_finish_speculative_auth (mongoc_cluster_t *cluster,
       return false;
    }
 
-   if (!bson_iter_init_find (&iter, &sd->last_is_master, "speculativeAuthenticate")) {
+   if (!bson_iter_init_find (
+          &iter, &sd->last_is_master, "speculativeAuthenticate")) {
       return false;
    }
 
@@ -1920,8 +1931,10 @@ _mongoc_cluster_finish_speculative_auth (mongoc_cluster_t *cluster,
 #endif
 
 #ifdef MONGOC_ENABLE_CRYPTO
-   if (strcasecmp (mechanism, "SCRAM-SHA-1") == 0 || strcasecmp (mechanism, "SCRAM-SHA-256") == 0) {
-      if (_mongoc_cluster_auth_scram_continue (cluster, stream, sd->id, scram, &authentication_response, error)) {
+   if (strcasecmp (mechanism, "SCRAM-SHA-1") == 0 ||
+       strcasecmp (mechanism, "SCRAM-SHA-256") == 0) {
+      if (_mongoc_cluster_auth_scram_continue (
+             cluster, stream, sd->id, scram, &authentication_response, error)) {
          return true;
       }
    }
@@ -1984,7 +1997,8 @@ _mongoc_cluster_add_node (mongoc_cluster_t *cluster,
    /* take critical fields from a fresh ismaster */
    cluster_node = _mongoc_cluster_node_new (stream, host->host_and_port);
 
-   sd = _mongoc_cluster_run_ismaster (cluster, cluster_node, server_id, &scram, error);
+   sd = _mongoc_cluster_run_ismaster (
+      cluster, cluster_node, server_id, &scram, error);
    if (!sd) {
       GOTO (error);
    }
@@ -1994,9 +2008,11 @@ _mongoc_cluster_add_node (mongoc_cluster_t *cluster,
 
    if (cluster->requires_auth) {
       /* Complete speculative authentication */
-      bool is_auth = _mongoc_cluster_finish_speculative_auth (cluster, stream, sd, &scram, error);
+      bool is_auth = _mongoc_cluster_finish_speculative_auth (
+         cluster, stream, sd, &scram, error);
 
-      if (!is_auth && !_mongoc_cluster_auth_node (
+      if (!is_auth &&
+          !_mongoc_cluster_auth_node (
              cluster, cluster_node->stream, sd, &sasl_supported_mechs, error)) {
          MONGOC_WARNING ("Failed authentication to %s (%s)",
                          host->host_and_port,
@@ -2278,11 +2294,13 @@ mongoc_cluster_fetch_stream_single (mongoc_cluster_t *cluster,
    /* stream open but not auth'ed: first use since connect or reconnect */
    if (cluster->requires_auth && !scanner_node->has_auth) {
       /* Complete speculative authentication */
-      bool has_speculative_auth = _mongoc_cluster_finish_speculative_auth (cluster, scanner_node->stream, sd, &scanner_node->scram, &sd->error);
+      bool has_speculative_auth = _mongoc_cluster_finish_speculative_auth (
+         cluster, scanner_node->stream, sd, &scanner_node->scram, &sd->error);
 
       _mongoc_scram_destroy (&scanner_node->scram);
 
-      if (!has_speculative_auth && !_mongoc_cluster_auth_node (cluster,
+      if (!has_speculative_auth &&
+          !_mongoc_cluster_auth_node (cluster,
                                       scanner_node->stream,
                                       sd,
                                       &scanner_node->sasl_supported_mechs,

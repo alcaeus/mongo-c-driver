@@ -179,10 +179,11 @@ mongoc_topology_scanner_node_t *
 mongoc_topology_scanner_get_node (mongoc_topology_scanner_t *ts, uint32_t id);
 
 bool
-_mongoc_topology_scanner_add_speculative_authentication (bson_t *cmd,
-                                                         const mongoc_uri_t *uri,
-                                                         const mongoc_ssl_opt_t *ssl_opts,
-                                                         mongoc_scram_t *scram /* out */);
+_mongoc_topology_scanner_add_speculative_authentication (
+   bson_t *cmd,
+   const mongoc_uri_t *uri,
+   const mongoc_ssl_opt_t *ssl_opts,
+   mongoc_scram_t *scram /* out */);
 
 const bson_t *
 _mongoc_topology_scanner_get_ismaster (mongoc_topology_scanner_t *ts);

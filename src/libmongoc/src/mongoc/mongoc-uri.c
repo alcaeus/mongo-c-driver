@@ -3060,7 +3060,9 @@ mongoc_uri_init_with_srv_host_list (mongoc_uri_t *uri,
 }
 
 void
-_mongoc_uri_init_scram (const mongoc_uri_t *uri, mongoc_scram_t *scram, mongoc_crypto_hash_algorithm_t algo)
+_mongoc_uri_init_scram (const mongoc_uri_t *uri,
+                        mongoc_scram_t *scram,
+                        mongoc_crypto_hash_algorithm_t algo)
 {
    BSON_ASSERT (uri);
    BSON_ASSERT (scram);
