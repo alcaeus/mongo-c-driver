@@ -2280,6 +2280,8 @@ mongoc_cluster_fetch_stream_single (mongoc_cluster_t *cluster,
       /* Complete speculative authentication */
       bool has_speculative_auth = _mongoc_cluster_finish_speculative_auth (cluster, scanner_node->stream, sd, &scanner_node->scram, &sd->error);
 
+      _mongoc_scram_destroy (&scanner_node->scram);
+
       if (!has_speculative_auth && !_mongoc_cluster_auth_node (cluster,
                                       scanner_node->stream,
                                       sd,

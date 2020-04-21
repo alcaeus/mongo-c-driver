@@ -242,8 +242,7 @@ _begin_ismaster_cmd (mongoc_topology_scanner_node_t *node,
       _mongoc_handshake_append_sasl_supported_mechs (ts->uri, &cmd);
    }
 
-   if (node->ts->speculative_authentication && !node->has_auth) {
-      _mongoc_scram_destroy (&node->scram);
+   if (node->ts->speculative_authentication && !node->has_auth && node->scram.step == 0) {
       _mongoc_topology_scanner_add_speculative_authentication(&cmd, ts->uri, ts->ssl_opts, &node->scram);
    }
 
