@@ -168,6 +168,8 @@ _mongoc_topology_scanner_add_speculative_authentication (
       BSON_APPEND_DOCUMENT (cmd, "speculativeAuthenticate", &auth_cmd);
    }
 
+   bson_destroy (&auth_cmd);
+
    return has_auth;
 }
 

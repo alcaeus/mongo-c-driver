@@ -1648,6 +1648,8 @@ _mongoc_cluster_auth_node_scram (mongoc_cluster_t *cluster,
 
    ret = true;
 
+   bson_destroy (&reply);
+
 failure:
    _mongoc_scram_destroy (&scram);
 
