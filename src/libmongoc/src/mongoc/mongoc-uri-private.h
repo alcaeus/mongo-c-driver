@@ -21,6 +21,7 @@
 
 #include "mongoc-uri.h"
 #include "mongoc-scram-private.h"
+#include "mongoc-crypto-private.h"
 
 
 BSON_BEGIN_DECLS
@@ -68,10 +69,12 @@ mongoc_uri_validate_srv_result (const mongoc_uri_t *uri,
                                 const char *host,
                                 bson_error_t *error);
 
+#ifdef MONGOC_ENABLE_CRYPTO
 void
 _mongoc_uri_init_scram (const mongoc_uri_t *uri,
                         mongoc_scram_t *scram,
                         mongoc_crypto_hash_algorithm_t algo);
+#endif
 
 BSON_END_DECLS
 

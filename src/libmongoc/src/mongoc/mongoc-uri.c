@@ -3059,6 +3059,7 @@ mongoc_uri_init_with_srv_host_list (mongoc_uri_t *uri,
    return true;
 }
 
+#ifdef MONGOC_ENABLE_CRYPTO
 void
 _mongoc_uri_init_scram (const mongoc_uri_t *uri,
                         mongoc_scram_t *scram,
@@ -3072,3 +3073,4 @@ _mongoc_uri_init_scram (const mongoc_uri_t *uri,
    _mongoc_scram_set_pass (scram, mongoc_uri_get_password (uri));
    _mongoc_scram_set_user (scram, mongoc_uri_get_username (uri));
 }
+#endif

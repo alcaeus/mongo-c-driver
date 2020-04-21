@@ -185,6 +185,7 @@ _mongoc_cluster_get_auth_cmd_x509 (const mongoc_uri_t *uri,
                                    bson_t *cmd /* OUT */,
                                    bson_error_t *error /* OUT */);
 
+#ifdef MONGOC_ENABLE_CRYPTO
 void
 _mongoc_cluster_init_scram (const mongoc_cluster_t *cluster,
                             mongoc_scram_t *scram,
@@ -195,6 +196,8 @@ _mongoc_cluster_get_auth_cmd_scram (mongoc_crypto_hash_algorithm_t algo,
                                     mongoc_scram_t *scram,
                                     bson_t *cmd /* out */,
                                     bson_error_t *error /* OUT */);
+#endif /* MONGOC_ENABLE_CRYPTO */
+
 BSON_END_DECLS
 
 

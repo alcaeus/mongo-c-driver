@@ -137,7 +137,10 @@ _mongoc_topology_scanner_add_speculative_authentication (
          has_auth = true;
          BSON_APPEND_UTF8 (&auth_cmd, "db", "$external");
       }
-   } else if (strcasecmp (mechanism, "SCRAM-SHA-1") == 0 ||
+   }
+
+#ifdef MONGOC_ENABLE_CRYPTO
+   if (strcasecmp (mechanism, "SCRAM-SHA-1") == 0 ||
               strcasecmp (mechanism, "SCRAM-SHA-256") == 0) {
       mongoc_crypto_hash_algorithm_t algo =
          strcasecmp (mechanism, "SCRAM-SHA-1") == 0
@@ -158,6 +161,7 @@ _mongoc_topology_scanner_add_speculative_authentication (
          BSON_APPEND_UTF8 (&auth_cmd, "db", auth_source);
       }
    }
+#endif
 
    if (has_auth) {
       BSON_APPEND_DOCUMENT (cmd, "speculativeAuthenticate", &auth_cmd);
@@ -251,8 +255,14 @@ _begin_ismaster_cmd (mongoc_topology_scanner_node_t *node,
 
    if (node->ts->speculative_authentication && !node->has_auth &&
        node->scram.step == 0) {
+      mongoc_ssl_opt_t *ssl_opts = NULL;
+
+#ifdef MONGOC_ENABLE_SSL
+      ssl_opts = ts->ssl_opts;
+#endif
+
       _mongoc_topology_scanner_add_speculative_authentication (
-         &cmd, ts->uri, ts->ssl_opts, &node->scram);
+         &cmd, ts->uri, ssl_opts, &node->scram);
    }
 
    if (!bson_empty (&ts->cluster_time)) {
@@ -445,7 +455,11 @@ mongoc_topology_scanner_node_destroy (mongoc_topology_scanner_node_t *node,
    if (node->dns_results) {
       freeaddrinfo (node->dns_results);
    }
+
+#ifdef MONGOC_ENABLE_CRYPTO
    _mongoc_scram_destroy (&node->scram);
+#endif
+
    bson_free (node);
 }
 

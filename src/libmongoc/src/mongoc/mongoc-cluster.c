@@ -815,6 +815,7 @@ _mongoc_stream_run_ismaster (mongoc_cluster_t *cluster,
    bson_t *copied_command = NULL;
    bool r;
    bson_iter_t iter;
+   mongoc_ssl_opt_t *ssl_opts = NULL;
 
    ENTRY;
 
@@ -829,8 +830,12 @@ _mongoc_stream_run_ismaster (mongoc_cluster_t *cluster,
    }
 
    if (cluster->requires_auth) {
+#ifdef MONGOC_ENABLE_SSL
+      ssl_opts = &cluster->client->ssl_opts;
+#endif
+
       _mongoc_topology_scanner_add_speculative_authentication (
-         copied_command, cluster->uri, &cluster->client->ssl_opts, scram);
+         copied_command, cluster->uri, ssl_opts, scram);
    }
 
    if (negotiate_sasl_supported_mechs) {
@@ -1345,6 +1350,7 @@ _mongoc_cluster_auth_node_x509 (mongoc_cluster_t *cluster,
 #endif
 }
 
+#ifdef MONGOC_ENABLE_CRYPTO
 void
 _mongoc_cluster_init_scram (const mongoc_cluster_t *cluster,
                             mongoc_scram_t *scram,
@@ -1364,14 +1370,6 @@ _mongoc_cluster_get_auth_cmd_scram (mongoc_crypto_hash_algorithm_t algo,
                                     bson_t *cmd /* out */,
                                     bson_error_t *error /* OUT */)
 {
-#ifndef MONGOC_ENABLE_CRYPTO
-   bson_set_error (error,
-                   MONGOC_ERROR_CLIENT,
-                   MONGOC_ERROR_CLIENT_AUTHENTICATE,
-                   "SCRAM authentication requires "
-                   "libmongoc built with ENABLE_SSL");
-   return false;
-#else
    uint8_t buf[4096] = {0};
    uint32_t buflen = 0;
    bson_t options;
@@ -1401,10 +1399,8 @@ _mongoc_cluster_get_auth_cmd_scram (mongoc_crypto_hash_algorithm_t algo,
    bson_append_document_end (cmd, &options);
 
    return true;
-#endif
 }
 
-#ifdef MONGOC_ENABLE_CRYPTO
 static bool
 _mongoc_cluster_run_scram_command (mongoc_cluster_t *cluster,
                                    mongoc_stream_t *stream,
@@ -2297,7 +2293,9 @@ mongoc_cluster_fetch_stream_single (mongoc_cluster_t *cluster,
       bool has_speculative_auth = _mongoc_cluster_finish_speculative_auth (
          cluster, scanner_node->stream, sd, &scanner_node->scram, &sd->error);
 
+#ifdef MONGOC_ENABLE_CRYPTO
       _mongoc_scram_destroy (&scanner_node->scram);
+#endif
 
       if (!has_speculative_auth &&
           !_mongoc_cluster_auth_node (cluster,

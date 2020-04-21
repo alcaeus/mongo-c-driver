@@ -34,6 +34,8 @@ typedef void (*setup_uri_options_t) (mongoc_uri_t *uri);
 typedef void (*compare_auth_command_t) (bson_t *auth_command);
 typedef void (*post_ismaster_commands_t) (mock_server_t *server);
 
+#ifdef MONGOC_ENABLE_CRYPTO
+
 /* For single threaded clients, to cause an isMaster to be sent, we must wait
  * until we're overdue for a heartbeat, and then execute some command */
 static future_t *
@@ -128,7 +130,11 @@ _test_mongoc_speculative_auth (bool pooled,
    server_ssl_opts.pem_file = CERT_SERVER;
 
    server = mock_server_new ();
+
+#ifdef MONGOC_ENABLE_SSL
    mock_server_set_ssl_opts (server, &server_ssl_opts);
+#endif
+
    mock_server_autoresponds (
       server,
       _auto_ismaster_without_speculative_auth,
@@ -147,7 +153,10 @@ _test_mongoc_speculative_auth (bool pooled,
 
    if (pooled) {
       pool = mongoc_client_pool_new (uri);
+
+#ifdef MONGOC_ENABLE_SSL
       mongoc_client_pool_set_ssl_opts (pool, &client_ssl_opts);
+#endif
 
       /* Force topology scanner to start */
       client = mongoc_client_pool_pop (pool);
@@ -155,7 +164,10 @@ _test_mongoc_speculative_auth (bool pooled,
       capture_logs (true);
    } else {
       client = mongoc_client_new_from_uri (uri);
+
+#ifdef MONGOC_ENABLE_SSL
       mongoc_client_set_ssl_opts (client, &client_ssl_opts);
+#endif
    }
 
    future = _force_ismaster_with_ping (client, heartbeat_ms);
@@ -371,10 +383,12 @@ test_mongoc_speculative_auth_request_scram_pool (void)
       _post_ismaster_scram,
       false);
 }
+#endif /* MONGOC_ENABLE_CRYPTO */
 
 void
 test_speculative_auth_install (TestSuite *suite)
 {
+#ifdef MONGOC_ENABLE_CRYPTO
    TestSuite_AddMockServerTest (suite,
                                 "/MongoDB/speculative_auth/request_none",
                                 test_mongoc_speculative_auth_request_none);
@@ -394,4 +408,5 @@ test_speculative_auth_install (TestSuite *suite)
       suite,
       "/MongoDB/speculative_auth_pool/request_scram",
       test_mongoc_speculative_auth_request_scram_pool);
+#endif
 }
