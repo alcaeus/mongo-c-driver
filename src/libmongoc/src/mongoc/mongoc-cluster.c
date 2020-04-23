@@ -2150,6 +2150,8 @@ _mongoc_cluster_add_node (mongoc_cluster_t *cluster,
 error:
    _mongoc_host_list_destroy_all (host); /* null ok */
 
+   _mongoc_scram_destroy (&scram);
+
    if (cluster_node) {
       _mongoc_cluster_node_destroy (cluster_node); /* also destroys stream */
    }
