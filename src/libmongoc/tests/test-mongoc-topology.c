@@ -403,6 +403,7 @@ _test_topology_invalidate_server (bool pooled)
       BSON_ASSERT (sd->error.domain != 0);
       ASSERT_CMPINT64 (sd->round_trip_time_msec, ==, (int64_t) -1);
       BSON_ASSERT (bson_empty (&sd->last_is_master));
+      BSON_ASSERT (bson_empty (&sd->last_speculative_auth_response));
       BSON_ASSERT (bson_empty (&sd->hosts));
       BSON_ASSERT (bson_empty (&sd->passives));
       BSON_ASSERT (bson_empty (&sd->arbiters));

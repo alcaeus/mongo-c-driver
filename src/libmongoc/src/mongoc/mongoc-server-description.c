@@ -42,6 +42,7 @@ mongoc_server_description_cleanup (mongoc_server_description_t *sd)
    BSON_ASSERT (sd);
 
    bson_destroy (&sd->last_is_master);
+   bson_destroy (&sd->last_speculative_auth_response);
    bson_destroy (&sd->hosts);
    bson_destroy (&sd->passives);
    bson_destroy (&sd->arbiters);
@@ -74,6 +75,8 @@ mongoc_server_description_reset (mongoc_server_description_t *sd)
    bson_init (&sd->last_is_master);
    sd->has_is_master = false;
    sd->last_update_time_usec = bson_get_monotonic_time ();
+
+   _mongoc_server_description_clear_speculative_auth_response (sd);
 
    bson_destroy (&sd->hosts);
    bson_destroy (&sd->passives);
@@ -131,6 +134,7 @@ mongoc_server_description_init (mongoc_server_description_t *sd,
 
    sd->connection_address = sd->host.host_and_port;
    bson_init (&sd->last_is_master);
+   bson_init (&sd->last_speculative_auth_response);
    bson_init (&sd->hosts);
    bson_init (&sd->passives);
    bson_init (&sd->arbiters);
@@ -532,8 +536,20 @@ mongoc_server_description_handle_ismaster (mongoc_server_description_t *sd,
    }
 
    bson_destroy (&sd->last_is_master);
-   bson_copy_to (ismaster_response, &sd->last_is_master);
+   bson_init (&sd->last_is_master);
+   bson_copy_to_excluding_noinit (ismaster_response, &sd->last_is_master, "speculativeAuthenticate", NULL);
    sd->has_is_master = true;
+
+   if (bson_iter_init_find (&iter, ismaster_response, "speculativeAuthenticate")) {
+      uint32_t data_len;
+      const uint8_t *data;
+
+      _mongoc_server_description_clear_speculative_auth_response (sd);
+
+      bson_iter_document (&iter, &data_len, &data);
+      bson_init_static (&sd->last_speculative_auth_response, data, data_len);
+      sd->has_speculative_auth_response = true;
+   }
 
    BSON_ASSERT (bson_iter_init (&iter, &sd->last_is_master));
 
@@ -742,6 +758,7 @@ mongoc_server_description_new_copy (
 
    copy->connection_address = copy->host.host_and_port;
    bson_init (&copy->last_is_master);
+   bson_init (&copy->last_speculative_auth_response);
    bson_init (&copy->hosts);
    bson_init (&copy->passives);
    bson_init (&copy->arbiters);
@@ -756,6 +773,11 @@ mongoc_server_description_new_copy (
          &description->last_is_master,
          description->round_trip_time_msec,
          &description->error);
+
+      if (description->has_speculative_auth_response) {
+         copy->has_speculative_auth_response = true;
+         bson_copy_to (&description->last_speculative_auth_response, &copy->last_speculative_auth_response);
+      }
    } else {
       mongoc_server_description_reset (copy);
    }
@@ -1167,4 +1189,16 @@ mongoc_server_description_topology_version_cmp (const bson_t *tv1,
       return 1;
    }
    return 0;
+}
+
+void
+_mongoc_server_description_clear_speculative_auth_response (mongoc_server_description_t *sd)
+{
+   if (!sd->has_speculative_auth_response) {
+      return;
+   }
+
+   sd->has_speculative_auth_response = false;
+   bson_destroy (&sd->last_speculative_auth_response);
+   bson_init (&sd->last_speculative_auth_response);
 }

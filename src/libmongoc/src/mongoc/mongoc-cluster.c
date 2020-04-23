@@ -2018,10 +2018,7 @@ _mongoc_cluster_finish_speculative_auth (mongoc_cluster_t *cluster,
                                          bson_error_t *error)
 {
    const char *mechanism = _get_auth_mechanism (cluster->uri);
-   bson_iter_t iter;
-   bson_t authentication_response;
-   uint32_t data_len;
-   const uint8_t *data;
+   bool ret = false;
 
    BSON_ASSERT (sd);
 
@@ -2029,34 +2026,34 @@ _mongoc_cluster_finish_speculative_auth (mongoc_cluster_t *cluster,
       return false;
    }
 
-   if (!bson_iter_init_find (
-          &iter, &sd->last_is_master, "speculativeAuthenticate")) {
+   if (!sd->has_speculative_auth_response) {
       return false;
    }
-
-   bson_iter_document (&iter, &data_len, &data);
-   bson_init_static (&authentication_response, data, data_len);
 
 #ifdef MONGOC_ENABLE_SSL
    if (strcasecmp (mechanism, "MONGODB-X509") == 0) {
       /* For X509, a successful ismaster with speculativeAuthenticate field
        * indicates successful auth */
-      return true;
+      ret = true;
    }
 #endif
 
 #ifdef MONGOC_ENABLE_CRYPTO
    if (strcasecmp (mechanism, "SCRAM-SHA-1") == 0 ||
        strcasecmp (mechanism, "SCRAM-SHA-256") == 0) {
-      if (scram->step == 1 &&
-          _mongoc_cluster_auth_scram_continue (
-             cluster, stream, sd->id, scram, &authentication_response, error)) {
-         return true;
+
+      /* Don't attempt authentication if scram objects have advanced past saslStart */
+      if (scram->step != 1) {
+         return false;
       }
+
+      ret = _mongoc_cluster_auth_scram_continue (cluster, stream, sd->id, scram, &sd->last_speculative_auth_response, error);
    }
 #endif
 
-   return false;
+   _mongoc_server_description_clear_speculative_auth_response (sd);
+
+   return ret;
 }
 
 /*

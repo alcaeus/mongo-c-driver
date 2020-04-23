@@ -120,6 +120,10 @@ test_server_description_equal (void)
    bson_reinit (&sd1.last_is_master);
    BSON_ASSERT (_mongoc_server_description_equal (&sd1, &sd2));
 
+   /* speculativeAuthentication response differs, still considered equal */
+   bson_reinit (&sd1.last_speculative_auth_response);
+   BSON_ASSERT (_mongoc_server_description_equal (&sd1, &sd2));
+
    /* "type" differs, considered unequal. */
    reset_basic_sd (&sd1);
    reset_basic_sd (&sd2);
