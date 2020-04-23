@@ -781,6 +781,7 @@ mongoc_server_description_new_copy (
 
       if (description->has_speculative_auth_response) {
          copy->has_speculative_auth_response = true;
+         bson_destroy (&copy->last_speculative_auth_response);
          bson_copy_to (&description->last_speculative_auth_response,
                        &copy->last_speculative_auth_response);
       }

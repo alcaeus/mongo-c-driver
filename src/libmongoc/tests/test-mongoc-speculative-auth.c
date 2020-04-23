@@ -62,6 +62,8 @@ _respond_to_ping (future_t *future, mock_server_t *server, bool expect_ping)
 
    if (!expect_ping) {
       BSON_ASSERT (!future_get_bool (future));
+      future_destroy (future);
+
       return;
    }
 
