@@ -525,6 +525,7 @@ mongoc_server_description_handle_ismaster (mongoc_server_description_t *sd,
    const uint8_t *bytes;
    uint32_t len;
    int num_keys = 0;
+   bson_t auth_response;
    ENTRY;
 
    BSON_ASSERT (sd);
@@ -549,7 +550,9 @@ mongoc_server_description_handle_ismaster (mongoc_server_description_t *sd,
       _mongoc_server_description_clear_speculative_auth_response (sd);
 
       bson_iter_document (&iter, &data_len, &data);
-      bson_init_static (&sd->last_speculative_auth_response, data, data_len);
+      BSON_ASSERT (bson_init_static (&auth_response, data, data_len));
+      bson_destroy (&sd->last_speculative_auth_response);
+      bson_copy_to (&auth_response, &sd->last_speculative_auth_response);
       sd->has_speculative_auth_response = true;
    }
 
