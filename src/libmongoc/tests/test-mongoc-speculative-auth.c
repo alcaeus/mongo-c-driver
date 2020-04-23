@@ -39,12 +39,9 @@ typedef void (*post_ismaster_commands_t) (mock_server_t *server);
 /* For single threaded clients, to cause an isMaster to be sent, we must wait
  * until we're overdue for a heartbeat, and then execute some command */
 static future_t *
-_force_ismaster_with_ping (mongoc_client_t *client, int heartbeat_ms)
+_force_ismaster_with_ping (mongoc_client_t *client)
 {
    future_t *future;
-
-   /* Wait until we're overdue to send an isMaster */
-   _mongoc_usleep (heartbeat_ms * 2 * 1000);
 
    /* Send a ping */
    future = future_client_command_simple (
@@ -122,7 +119,6 @@ _test_mongoc_speculative_auth (bool pooled,
    mongoc_client_t *client;
    mongoc_client_pool_t *pool = NULL;
    future_t *future;
-   const int heartbeat_ms = 500;
 
    mongoc_ssl_opt_t client_ssl_opts = {0};
    mongoc_ssl_opt_t server_ssl_opts = {0};
@@ -147,7 +143,7 @@ _test_mongoc_speculative_auth (bool pooled,
 
    uri = mongoc_uri_copy (mock_server_get_uri (server));
    mongoc_uri_set_option_as_int32 (
-      uri, MONGOC_URI_HEARTBEATFREQUENCYMS, heartbeat_ms);
+      uri, MONGOC_URI_HEARTBEATFREQUENCYMS, 15000);
 
    if (setup_uri_options) {
       setup_uri_options (uri);
@@ -172,7 +168,7 @@ _test_mongoc_speculative_auth (bool pooled,
 #endif
    }
 
-   future = _force_ismaster_with_ping (client, heartbeat_ms);
+   future = _force_ismaster_with_ping (client);
 
    if (includes_speculative_auth) {
       request_t *request;
