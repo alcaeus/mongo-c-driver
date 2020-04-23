@@ -142,8 +142,7 @@ _test_mongoc_speculative_auth (bool pooled,
    mock_server_run (server);
 
    uri = mongoc_uri_copy (mock_server_get_uri (server));
-   mongoc_uri_set_option_as_int32 (
-      uri, MONGOC_URI_HEARTBEATFREQUENCYMS, 15000);
+   mongoc_uri_set_option_as_int32 (uri, MONGOC_URI_HEARTBEATFREQUENCYMS, 15000);
 
    if (setup_uri_options) {
       setup_uri_options (uri);
@@ -315,69 +314,83 @@ test_mongoc_speculative_auth_request_none_pool (void)
 static void
 test_mongoc_speculative_auth_request_x509 (void)
 {
-   _test_mongoc_speculative_auth (
-      false,
-      _setup_speculative_auth_x_509,
-      true,
-      _compare_auth_cmd_x509,
+   bson_t *response =
       BCON_NEW ("dbname",
                 BCON_UTF8 ("$external"),
                 "user",
                 BCON_UTF8 ("CN=myName,OU=myOrgUnit,O=myOrg,L=myLocality,ST="
-                           "myState,C=myCountry")),
-      NULL,
-      true);
+                           "myState,C=myCountry"));
+
+   _test_mongoc_speculative_auth (false,
+                                  _setup_speculative_auth_x_509,
+                                  true,
+                                  _compare_auth_cmd_x509,
+                                  response,
+                                  NULL,
+                                  true);
+
+   bson_destroy (response);
 }
 
 static void
 test_mongoc_speculative_auth_request_x509_pool (void)
 {
-   _test_mongoc_speculative_auth (
-      true,
-      _setup_speculative_auth_x_509,
-      true,
-      _compare_auth_cmd_x509,
+   bson_t *response =
       BCON_NEW ("dbname",
                 BCON_UTF8 ("$external"),
                 "user",
                 BCON_UTF8 ("CN=myName,OU=myOrgUnit,O=myOrg,L=myLocality,ST="
-                           "myState,C=myCountry")),
-      NULL,
-      true);
+                           "myState,C=myCountry"));
+
+   _test_mongoc_speculative_auth (true,
+                                  _setup_speculative_auth_x_509,
+                                  true,
+                                  _compare_auth_cmd_x509,
+                                  response,
+                                  NULL,
+                                  true);
+
+   bson_destroy (response);
 }
 
 static void
 test_mongoc_speculative_auth_request_scram (void)
 {
-   _test_mongoc_speculative_auth (
-      false,
-      _setup_speculative_auth_scram,
-      true,
-      _compare_auth_cmd_scram,
-      BCON_NEW (
-         "conversationId",
-         BCON_INT32 (15081984),
-         "payload",
-         BCON_BIN (BSON_SUBTYPE_BINARY, (const uint8_t *) "deadbeef", 8)),
-      _post_ismaster_scram_invalid_auth_response,
-      false);
+   bson_t *response = BCON_NEW (
+      "conversationId",
+      BCON_INT32 (15081984),
+      "payload",
+      BCON_BIN (BSON_SUBTYPE_BINARY, (const uint8_t *) "deadbeef", 8));
+
+   _test_mongoc_speculative_auth (false,
+                                  _setup_speculative_auth_scram,
+                                  true,
+                                  _compare_auth_cmd_scram,
+                                  response,
+                                  _post_ismaster_scram_invalid_auth_response,
+                                  false);
+
+   bson_destroy (response);
 }
 
 static void
 test_mongoc_speculative_auth_request_scram_pool (void)
 {
-   _test_mongoc_speculative_auth (
-      true,
-      _setup_speculative_auth_scram,
-      true,
-      _compare_auth_cmd_scram,
-      BCON_NEW (
-         "conversationId",
-         BCON_INT32 (15081984),
-         "payload",
-         BCON_BIN (BSON_SUBTYPE_BINARY, (const uint8_t *) "deadbeef", 8)),
-      _post_ismaster_scram_invalid_auth_response,
-      false);
+   bson_t *response = BCON_NEW (
+      "conversationId",
+      BCON_INT32 (15081984),
+      "payload",
+      BCON_BIN (BSON_SUBTYPE_BINARY, (const uint8_t *) "deadbeef", 8));
+
+   _test_mongoc_speculative_auth (true,
+                                  _setup_speculative_auth_scram,
+                                  true,
+                                  _compare_auth_cmd_scram,
+                                  response,
+                                  _post_ismaster_scram_invalid_auth_response,
+                                  false);
+
+   bson_destroy (response);
 }
 #endif /* MONGOC_ENABLE_CRYPTO */
 
