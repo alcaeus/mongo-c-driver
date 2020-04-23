@@ -167,6 +167,7 @@ mongoc_server_description_topology_version_cmp (const bson_t *tv1,
                                                 const bson_t *tv2);
 
 void
-_mongoc_server_description_clear_speculative_auth_response (mongoc_server_description_t *sd);
+_mongoc_server_description_clear_speculative_auth_response (
+   mongoc_server_description_t *sd);
 
 #endif

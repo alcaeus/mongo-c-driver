@@ -537,10 +537,12 @@ mongoc_server_description_handle_ismaster (mongoc_server_description_t *sd,
 
    bson_destroy (&sd->last_is_master);
    bson_init (&sd->last_is_master);
-   bson_copy_to_excluding_noinit (ismaster_response, &sd->last_is_master, "speculativeAuthenticate", NULL);
+   bson_copy_to_excluding_noinit (
+      ismaster_response, &sd->last_is_master, "speculativeAuthenticate", NULL);
    sd->has_is_master = true;
 
-   if (bson_iter_init_find (&iter, ismaster_response, "speculativeAuthenticate")) {
+   if (bson_iter_init_find (
+          &iter, ismaster_response, "speculativeAuthenticate")) {
       uint32_t data_len;
       const uint8_t *data;
 
@@ -776,7 +778,8 @@ mongoc_server_description_new_copy (
 
       if (description->has_speculative_auth_response) {
          copy->has_speculative_auth_response = true;
-         bson_copy_to (&description->last_speculative_auth_response, &copy->last_speculative_auth_response);
+         bson_copy_to (&description->last_speculative_auth_response,
+                       &copy->last_speculative_auth_response);
       }
    } else {
       mongoc_server_description_reset (copy);
@@ -1192,7 +1195,8 @@ mongoc_server_description_topology_version_cmp (const bson_t *tv1,
 }
 
 void
-_mongoc_server_description_clear_speculative_auth_response (mongoc_server_description_t *sd)
+_mongoc_server_description_clear_speculative_auth_response (
+   mongoc_server_description_t *sd)
 {
    if (!sd->has_speculative_auth_response) {
       return;

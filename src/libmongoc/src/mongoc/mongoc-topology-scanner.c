@@ -142,7 +142,7 @@ _mongoc_topology_scanner_add_speculative_authentication (
 
 #ifdef MONGOC_ENABLE_CRYPTO
    if (strcasecmp (mechanism, "SCRAM-SHA-1") == 0 ||
-              strcasecmp (mechanism, "SCRAM-SHA-256") == 0) {
+       strcasecmp (mechanism, "SCRAM-SHA-256") == 0) {
       mongoc_crypto_hash_algorithm_t algo =
          strcasecmp (mechanism, "SCRAM-SHA-1") == 0
             ? MONGOC_CRYPTO_ALGORITHM_SHA_1

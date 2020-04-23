@@ -2041,13 +2041,19 @@ _mongoc_cluster_finish_speculative_auth (mongoc_cluster_t *cluster,
 #ifdef MONGOC_ENABLE_CRYPTO
    if (strcasecmp (mechanism, "SCRAM-SHA-1") == 0 ||
        strcasecmp (mechanism, "SCRAM-SHA-256") == 0) {
-
-      /* Don't attempt authentication if scram objects have advanced past saslStart */
+      /* Don't attempt authentication if scram objects have advanced past
+       * saslStart */
       if (scram->step != 1) {
          return false;
       }
 
-      ret = _mongoc_cluster_auth_scram_continue (cluster, stream, sd->id, scram, &sd->last_speculative_auth_response, error);
+      ret = _mongoc_cluster_auth_scram_continue (
+         cluster,
+         stream,
+         sd->id,
+         scram,
+         &sd->last_speculative_auth_response,
+         error);
    }
 #endif
 
