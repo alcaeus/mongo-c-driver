@@ -1364,6 +1364,25 @@ _mongoc_cluster_init_scram (const mongoc_cluster_t *cluster,
    }
 }
 
+/*
+ *--------------------------------------------------------------------------
+ *
+ * _mongoc_cluster_get_auth_cmd_scram --
+ *
+ *       Generates the saslStart command for scram authentication. Used
+ *       during explicit authentication as well as speculative
+ *       authentication during isMaster.
+ *
+ *
+ * Returns:
+ *       true if the command could be generated, false otherwise
+ *
+ * Side effects:
+ *       @error is set on failure.
+ *
+ *--------------------------------------------------------------------------
+ */
+
 bool
 _mongoc_cluster_get_auth_cmd_scram (mongoc_crypto_hash_algorithm_t algo,
                                     mongoc_scram_t *scram,
@@ -1402,6 +1421,24 @@ _mongoc_cluster_get_auth_cmd_scram (mongoc_crypto_hash_algorithm_t algo,
 
    return true;
 }
+
+/*
+ *--------------------------------------------------------------------------
+ *
+ * _mongoc_cluster_run_scram_command --
+ *
+ *       Runs a scram authentication command, handling auth_source and
+ *       errors during the command.
+ *
+ *
+ * Returns:
+ *       true if the command was successful, false otherwise
+ *
+ * Side effects:
+ *       @error is set on failure.
+ *
+ *--------------------------------------------------------------------------
+ */
 
 static bool
 _mongoc_cluster_run_scram_command (mongoc_cluster_t *cluster,
@@ -1445,6 +1482,25 @@ _mongoc_cluster_run_scram_command (mongoc_cluster_t *cluster,
    return true;
 }
 
+/*
+ *--------------------------------------------------------------------------
+ *
+ * _mongoc_cluster_auth_scram_start --
+ *
+ *       Starts scram authentication by generating and sending the saslStart
+ *       command. The conversation can then be resumed using
+ *       _mongoc_cluster_auth_scram_continue.
+ *
+ *
+ * Returns:
+ *       true if the saslStart command was successful, false otherwise
+ *
+ * Side effects:
+ *       @error is set on failure.
+ *
+ *--------------------------------------------------------------------------
+ */
+
 static bool
 _mongoc_cluster_auth_scram_start (mongoc_cluster_t *cluster,
                                   mongoc_stream_t *stream,
@@ -1477,6 +1533,28 @@ _mongoc_cluster_auth_scram_start (mongoc_cluster_t *cluster,
 
    return true;
 }
+
+/*
+ *--------------------------------------------------------------------------
+ *
+ * _mongoc_cluster_scram_handle_reply --
+ *
+ *       Handles replies from _mongoc_cluster_run_scram_command. The @done
+ *       argument will be set to true if the scram conversation was
+ *       completed successfully.
+ *
+ *
+ * Returns:
+ *       true if the reply was handled successfully, false if there was an
+ *       error. Note that the return value itself does not indicate whether
+ *       authentication was completed successfully.
+ *
+ * Side effects:
+ *       @error is set on failure. @done, @convid, @buf, and @buflen are set
+ *       for use in the next scram step.
+ *
+ *--------------------------------------------------------------------------
+ */
 
 static bool
 _mongoc_cluster_scram_handle_reply (mongoc_scram_t *scram,
@@ -1546,6 +1624,25 @@ _mongoc_cluster_scram_handle_reply (mongoc_scram_t *scram,
 
    return true;
 }
+
+/*
+ *--------------------------------------------------------------------------
+ *
+ * _mongoc_cluster_auth_scram_continue --
+ *
+ *       Continues the scram conversation from the reply to a saslStart
+ *       command, either sent explicitly or received through speculative
+ *       authentication during isMaster.
+ *
+ *
+ * Returns:
+ *       true if authenticated. false on failure and @error is set.
+ *
+ * Side effects:
+ *       @error is set on failure.
+ *
+ *--------------------------------------------------------------------------
+ */
 
 static bool
 _mongoc_cluster_auth_scram_continue (mongoc_cluster_t *cluster,
@@ -1618,6 +1715,24 @@ _mongoc_cluster_auth_scram_continue (mongoc_cluster_t *cluster,
 
    return true;
 }
+
+/*
+ *--------------------------------------------------------------------------
+ *
+ * _mongoc_cluster_auth_node_scram --
+ *
+ *       Invokes scram authentication by sending a saslStart command and
+ *       handling all replies.
+ *
+ *
+ * Returns:
+ *       true if authenticated. false on failure and @error is set.
+ *
+ * Side effects:
+ *       @error is set on failure.
+ *
+ *--------------------------------------------------------------------------
+ */
 
 static bool
 _mongoc_cluster_auth_node_scram (mongoc_cluster_t *cluster,
