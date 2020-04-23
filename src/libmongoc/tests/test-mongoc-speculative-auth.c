@@ -1,5 +1,5 @@
 /*
- * Copyright 2016 MongoDB, Inc.
+ * Copyright 2020-present MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -63,18 +63,21 @@ _respond_to_ping (future_t *future, mock_server_t *server, bool expect_ping)
 
    ASSERT (future);
 
+   if (!expect_ping) {
+      BSON_ASSERT (!future_get_bool (future));
+      return;
+   }
+
    request = mock_server_receives_command (
       server, "admin", MONGOC_QUERY_SLAVE_OK, "{'ping': 1}");
 
-   if (expect_ping) {
-      ASSERT (request);
+   ASSERT (request);
 
-      mock_server_replies_simple (request, "{'ok': 1}");
+   mock_server_replies_simple (request, "{'ok': 1}");
 
-      ASSERT (future_get_bool (future));
-      request_destroy (request);
-      future_destroy (future);
-   }
+   ASSERT (future_get_bool (future));
+   request_destroy (request);
+   future_destroy (future);
 }
 
 static bool
@@ -118,7 +121,6 @@ _test_mongoc_speculative_auth (bool pooled,
    mongoc_uri_t *uri;
    mongoc_client_t *client;
    mongoc_client_pool_t *pool = NULL;
-   bson_iter_t iter;
    future_t *future;
    const int heartbeat_ms = 500;
 
@@ -187,19 +189,12 @@ _test_mongoc_speculative_auth (bool pooled,
 
       if (compare_auth_command) {
          bson_t auth_cmd;
-         uint32_t len;
-         const uint8_t *data;
 
-         ASSERT (bson_iter_init_find (
-            &iter, request_doc, "speculativeAuthenticate"));
-
-         bson_iter_document (&iter, &len, &data);
-
-         ASSERT (bson_init_static (&auth_cmd, data, len));
+         bson_lookup_doc (request_doc, "speculativeAuthenticate", &auth_cmd);
          compare_auth_command (&auth_cmd);
       }
 
-      // Include authentication information in response
+      /* Include authentication information in response */
       response = BCON_NEW ("ok",
                            BCON_INT32 (1),
                            "ismaster",
@@ -286,7 +281,7 @@ _compare_auth_cmd_scram (bson_t *auth_cmd)
 }
 
 static void
-_post_ismaster_scram (mock_server_t *srv)
+_post_ismaster_scram_invalid_auth_response (mock_server_t *srv)
 {
    request_t *request;
    const bson_t *request_doc;
@@ -297,9 +292,14 @@ _post_ismaster_scram (mock_server_t *srv)
    request_doc = request_get_doc (request, 0);
    ASSERT (request_doc);
 
-   // Expect regular authentication since we can't hijack the scram process
+   /* Speculative authentication was not successful because the mock server
+    * can't respond with a valid scram payload. This results in a new
+    * authentication attempt being started using an explicit saslStart command.
+    */
    ASSERT_CMPSTR (request->command_name, "saslStart");
 
+   /* Let authentication fail directly since we won't be able to continue the
+    * scram conversation. */
    mock_server_replies_simple (
       request, "{ 'ok': 1, 'errmsg': 'Cannot mock scram auth conversation' }");
 }
@@ -363,7 +363,7 @@ test_mongoc_speculative_auth_request_scram (void)
          BCON_INT32 (15081984),
          "payload",
          BCON_BIN (BSON_SUBTYPE_BINARY, (const uint8_t *) "deadbeef", 8)),
-      _post_ismaster_scram,
+      _post_ismaster_scram_invalid_auth_response,
       false);
 }
 
@@ -380,7 +380,7 @@ test_mongoc_speculative_auth_request_scram_pool (void)
          BCON_INT32 (15081984),
          "payload",
          BCON_BIN (BSON_SUBTYPE_BINARY, (const uint8_t *) "deadbeef", 8)),
-      _post_ismaster_scram,
+      _post_ismaster_scram_invalid_auth_response,
       false);
 }
 #endif /* MONGOC_ENABLE_CRYPTO */
@@ -390,23 +390,23 @@ test_speculative_auth_install (TestSuite *suite)
 {
 #ifdef MONGOC_ENABLE_CRYPTO
    TestSuite_AddMockServerTest (suite,
-                                "/MongoDB/speculative_auth/request_none",
+                                "/speculative_auth/request_none",
                                 test_mongoc_speculative_auth_request_none);
    TestSuite_AddMockServerTest (suite,
-                                "/MongoDB/speculative_auth/request_x509",
+                                "/speculative_auth/request_x509",
                                 test_mongoc_speculative_auth_request_x509);
    TestSuite_AddMockServerTest (suite,
-                                "/MongoDB/speculative_auth/request_scram",
+                                "/speculative_auth/request_scram",
                                 test_mongoc_speculative_auth_request_scram);
    TestSuite_AddMockServerTest (suite,
-                                "/MongoDB/speculative_auth_pool/request_none",
+                                "/speculative_auth_pool/request_none",
                                 test_mongoc_speculative_auth_request_none_pool);
    TestSuite_AddMockServerTest (suite,
-                                "/MongoDB/speculative_auth_pool/request_x509",
+                                "/speculative_auth_pool/request_x509",
                                 test_mongoc_speculative_auth_request_x509_pool);
    TestSuite_AddMockServerTest (
       suite,
-      "/MongoDB/speculative_auth_pool/request_scram",
+      "/speculative_auth_pool/request_scram",
       test_mongoc_speculative_auth_request_scram_pool);
 #endif
 }
