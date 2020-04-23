@@ -2089,7 +2089,7 @@ _mongoc_cluster_add_node (mongoc_cluster_t *cluster,
    mongoc_stream_t *stream;
    mongoc_server_description_t *sd;
    mongoc_handshake_sasl_supported_mechs_t sasl_supported_mechs;
-   mongoc_scram_t scram;
+   mongoc_scram_t scram = {0};
 
    ENTRY;
 
@@ -2150,7 +2150,9 @@ _mongoc_cluster_add_node (mongoc_cluster_t *cluster,
 error:
    _mongoc_host_list_destroy_all (host); /* null ok */
 
+#ifdef MONGOC_ENABLE_CRYPTO
    _mongoc_scram_destroy (&scram);
+#endif
 
    if (cluster_node) {
       _mongoc_cluster_node_destroy (cluster_node); /* also destroys stream */
