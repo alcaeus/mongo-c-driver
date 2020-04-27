@@ -1684,6 +1684,7 @@ _mongoc_cluster_auth_scram_continue (mongoc_cluster_t *cluster,
 
       if (!_mongoc_cluster_run_scram_command (
              cluster, stream, server_id, &cmd, &reply_local, error)) {
+         bson_destroy (&cmd);
          return false;
       }
 
@@ -2144,6 +2145,10 @@ _mongoc_cluster_add_node (mongoc_cluster_t *cluster,
 
    mongoc_set_add (cluster->nodes, server_id, cluster_node);
    _mongoc_host_list_destroy_all (host);
+
+#ifdef MONGOC_ENABLE_CRYPTO
+   _mongoc_scram_destroy (&scram);
+#endif
 
    RETURN (stream);
 
