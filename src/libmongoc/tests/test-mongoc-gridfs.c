@@ -107,7 +107,7 @@ _get_gridfs (mock_server_t *server, mongoc_client_t *client)
 
 
 static void
-test_create (void)
+_test_create (bson_t *create_index_cmd)
 {
    mongoc_gridfs_t *gridfs;
    mongoc_gridfs_file_t *file;
@@ -123,6 +123,24 @@ test_create (void)
    chunks = mongoc_client_get_collection (client, "test", "foo.chunks");
    mongoc_collection_drop (files, NULL);
    mongoc_collection_drop (chunks, NULL);
+
+   if (create_index_cmd) {
+      bool r;
+      mongoc_database_t *db;
+
+      db = mongoc_client_get_database (client, "test");
+
+      r = mongoc_database_write_command_with_opts (
+            db,
+            create_index_cmd,
+            NULL,
+            NULL,
+            &error);
+
+      ASSERT_OR_PRINT (r, error);
+
+      mongoc_database_destroy (db);
+   }
 
    ASSERT_OR_PRINT (
       (gridfs = mongoc_client_get_gridfs (client, "test", "foo", &error)),
@@ -144,6 +162,40 @@ test_create (void)
    mongoc_collection_destroy (chunks);
    mongoc_collection_destroy (files);
    mongoc_client_destroy (client);
+}
+
+
+static void
+test_create (void) {
+   _test_create (NULL);
+
+   /* Test files index with float and same options */
+   _test_create (
+         tmp_bson ("{'createIndexes': '%s',"
+                   " 'indexes': [{'key': {'filename': 1.0, 'uploadDate': 1}, 'name': 'filename_1_uploadDate_1'}]}",
+                   "foo.files")
+   );
+
+   /* Files index with float and different options */
+   _test_create (
+         tmp_bson ("{'createIndexes': '%s',"
+                   " 'indexes': [{'key': {'filename': 1.0, 'uploadDate': 1}, 'name': 'different_name'}]}",
+                   "foo.files")
+   );
+
+   /* Chunks index with float and same options */
+   _test_create (
+         tmp_bson ("{'createIndexes': '%s',"
+                   " 'indexes': [{'key': {'files_id': 1.0, 'n': 1}, 'name': 'files_id_1_n_1', 'unique': true}]}",
+                   "foo.chunks")
+   );
+
+   /* Chunks index with float and different options */
+   _test_create (
+         tmp_bson ("{'createIndexes': '%s',"
+                   " 'indexes': [{'key': {'files_id': 1.0, 'n': 1}, 'name': 'different_name', 'unique': true}]}",
+                   "foo.chunks")
+   );
 }
 
 
