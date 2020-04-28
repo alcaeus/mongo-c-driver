@@ -1162,7 +1162,8 @@ mongoc_collection_create_index (mongoc_collection_t *collection,
 }
 
 static bool
-_mongoc_collection_index_keys_equal (const bson_t *expected, const bson_t *actual)
+_mongoc_collection_index_keys_equal (const bson_t *expected,
+                                     const bson_t *actual)
 {
    bson_iter_t iter_expected;
    bson_iter_t iter_actual;
@@ -1171,22 +1172,26 @@ _mongoc_collection_index_keys_equal (const bson_t *expected, const bson_t *actua
    bson_iter_init (&iter_actual, actual);
 
    while (bson_iter_next (&iter_expected)) {
-      /* If the key document has fewer items than expected, indexes are unequal */
+      /* If the key document has fewer items than expected, indexes are unequal
+       */
       if (!bson_iter_next (&iter_actual)) {
          return false;
       }
 
       /* If key order does not match, indexes are unequal */
-      if (strcmp (bson_iter_key (&iter_expected), bson_iter_key (&iter_actual)) != 0) {
+      if (strcmp (bson_iter_key (&iter_expected),
+                  bson_iter_key (&iter_actual)) != 0) {
          return false;
       }
 
-      if (bson_iter_as_int64 (&iter_expected) != bson_iter_as_int64 (&iter_actual)) {
+      if (bson_iter_as_int64 (&iter_expected) !=
+          bson_iter_as_int64 (&iter_actual)) {
          return false;
       }
    }
 
-   /* If our expected document is exhausted, make sure there are no extra keys in the actual key document */
+   /* If our expected document is exhausted, make sure there are no extra keys
+    * in the actual key document */
    if (bson_iter_next (&iter_actual)) {
       return false;
    }
@@ -1245,9 +1250,7 @@ _mongoc_collection_create_index_if_not_exists (mongoc_collection_t *collection,
       bson_copy_to (opts, &index);
    }
 
-   BCON_APPEND (&index,
-      "key", BCON_DOCUMENT (keys)
-   );
+   BCON_APPEND (&index, "key", BCON_DOCUMENT (keys));
 
    bson_init (&command);
    BCON_APPEND (&command,
@@ -1259,7 +1262,7 @@ _mongoc_collection_create_index_if_not_exists (mongoc_collection_t *collection,
                 "]");
 
    r = mongoc_collection_write_command_with_opts (
-         collection, &command, NULL, NULL, error);
+      collection, &command, NULL, NULL, error);
    bson_destroy (&index);
    bson_destroy (&command);
 

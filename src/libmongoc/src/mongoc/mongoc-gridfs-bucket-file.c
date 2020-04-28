@@ -88,7 +88,8 @@ _mongoc_gridfs_bucket_create_indexes (mongoc_gridfs_bucket_t *bucket,
    BSON_APPEND_INT32 (&files_index, "filename", 1);
    BSON_APPEND_INT32 (&files_index, "uploadDate", 1);
 
-   r = _mongoc_collection_create_index_if_not_exists (bucket->files, &files_index, &opts, error);
+   r = _mongoc_collection_create_index_if_not_exists (
+      bucket->files, &files_index, &opts, error);
    bson_destroy (&opts);
    bson_destroy (&files_index);
    if (!r) {
@@ -104,7 +105,8 @@ _mongoc_gridfs_bucket_create_indexes (mongoc_gridfs_bucket_t *bucket,
    BSON_APPEND_INT32 (&chunks_index, "files_id", 1);
    BSON_APPEND_INT32 (&chunks_index, "n", 1);
 
-   r = _mongoc_collection_create_index_if_not_exists (bucket->chunks, &chunks_index, &opts, error);
+   r = _mongoc_collection_create_index_if_not_exists (
+      bucket->chunks, &chunks_index, &opts, error);
    bson_destroy (&opts);
    bson_destroy (&chunks_index);
 

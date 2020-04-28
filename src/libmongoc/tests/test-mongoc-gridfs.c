@@ -131,11 +131,7 @@ _test_create (bson_t *create_index_cmd)
       db = mongoc_client_get_database (client, "test");
 
       r = mongoc_database_write_command_with_opts (
-            db,
-            create_index_cmd,
-            NULL,
-            NULL,
-            &error);
+         db, create_index_cmd, NULL, NULL, &error);
 
       ASSERT_OR_PRINT (r, error);
 
@@ -166,36 +162,34 @@ _test_create (bson_t *create_index_cmd)
 
 
 static void
-test_create (void) {
+test_create (void)
+{
    _test_create (NULL);
 
    /* Test files index with float and same options */
    _test_create (
-         tmp_bson ("{'createIndexes': '%s',"
-                   " 'indexes': [{'key': {'filename': 1.0, 'uploadDate': 1}, 'name': 'filename_1_uploadDate_1'}]}",
-                   "foo.files")
-   );
+      tmp_bson ("{'createIndexes': '%s',"
+                " 'indexes': [{'key': {'filename': 1.0, 'uploadDate': 1}, "
+                "'name': 'filename_1_uploadDate_1'}]}",
+                "foo.files"));
 
    /* Files index with float and different options */
-   _test_create (
-         tmp_bson ("{'createIndexes': '%s',"
-                   " 'indexes': [{'key': {'filename': 1.0, 'uploadDate': 1}, 'name': 'different_name'}]}",
-                   "foo.files")
-   );
+   _test_create (tmp_bson ("{'createIndexes': '%s',"
+                           " 'indexes': [{'key': {'filename': 1.0, "
+                           "'uploadDate': 1}, 'name': 'different_name'}]}",
+                           "foo.files"));
 
    /* Chunks index with float and same options */
-   _test_create (
-         tmp_bson ("{'createIndexes': '%s',"
-                   " 'indexes': [{'key': {'files_id': 1.0, 'n': 1}, 'name': 'files_id_1_n_1', 'unique': true}]}",
-                   "foo.chunks")
-   );
+   _test_create (tmp_bson ("{'createIndexes': '%s',"
+                           " 'indexes': [{'key': {'files_id': 1.0, 'n': 1}, "
+                           "'name': 'files_id_1_n_1', 'unique': true}]}",
+                           "foo.chunks"));
 
    /* Chunks index with float and different options */
-   _test_create (
-         tmp_bson ("{'createIndexes': '%s',"
-                   " 'indexes': [{'key': {'files_id': 1.0, 'n': 1}, 'name': 'different_name', 'unique': true}]}",
-                   "foo.chunks")
-   );
+   _test_create (tmp_bson ("{'createIndexes': '%s',"
+                           " 'indexes': [{'key': {'files_id': 1.0, 'n': 1}, "
+                           "'name': 'different_name', 'unique': true}]}",
+                           "foo.chunks"));
 }
 
 
