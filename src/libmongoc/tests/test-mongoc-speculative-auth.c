@@ -36,8 +36,8 @@ typedef void (*post_ismaster_commands_t) (mock_server_t *server);
 
 #ifdef MONGOC_ENABLE_CRYPTO
 
-/* For single threaded clients, to cause an isMaster to be sent, we must wait
- * until we're overdue for a heartbeat, and then execute some command */
+/* For single threaded clients, we execute a command to cause an isMaster to be
+ * sent */
 static future_t *
 _force_ismaster_with_ping (mongoc_client_t *client)
 {
@@ -175,14 +175,14 @@ _test_mongoc_speculative_auth (bool pooled,
       request_t *request;
       const bson_t *request_doc;
       bson_t *response;
+      char *str;
 
       request = mock_server_receives_ismaster (server);
       ASSERT (request);
       request_doc = request_get_doc (request, 0);
       ASSERT (request_doc);
       ASSERT (bson_has_field (request_doc, "isMaster"));
-      ASSERT (bson_has_field (request_doc, "speculativeAuthenticate") ==
-              includes_speculative_auth);
+      ASSERT (bson_has_field (request_doc, "speculativeAuthenticate"));
 
       if (compare_auth_command) {
          bson_t auth_cmd;
@@ -206,8 +206,10 @@ _test_mongoc_speculative_auth (bool pooled,
             response, "speculativeAuthenticate", speculative_auth_response);
       }
 
-      mock_server_replies_simple (
-         request, bson_as_canonical_extended_json (response, NULL));
+      str = bson_as_canonical_extended_json (response, NULL);
+      mock_server_replies_simple (request, str);
+
+      bson_free (str);
       bson_destroy (response);
       request_destroy (request);
    }
@@ -252,10 +254,14 @@ _compare_auth_cmd_x509 (bson_t *auth_cmd)
          "CN=myName,OU=myOrgUnit,O=myOrg,L=myLocality,ST=myState,C=myCountry"),
       "db",
       BCON_UTF8 ("$external"));
+   char *auth_cmd_str = bson_as_canonical_extended_json (auth_cmd, NULL);
+   char *expected_auth_cmd_str =
+      bson_as_canonical_extended_json (expected_auth_cmd, NULL);
 
-   ASSERT_CMPJSON (bson_as_canonical_extended_json (auth_cmd, NULL),
-                   bson_as_canonical_extended_json (expected_auth_cmd, NULL));
+   ASSERT_CMPJSON (auth_cmd_str, expected_auth_cmd_str);
 
+   bson_free (auth_cmd_str);
+   bson_free (expected_auth_cmd_str);
    bson_destroy (expected_auth_cmd);
 }
 
