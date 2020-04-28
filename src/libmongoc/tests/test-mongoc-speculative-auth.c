@@ -254,11 +254,12 @@ _compare_auth_cmd_x509 (bson_t *auth_cmd)
          "CN=myName,OU=myOrgUnit,O=myOrg,L=myLocality,ST=myState,C=myCountry"),
       "db",
       BCON_UTF8 ("$external"));
+
    char *auth_cmd_str = bson_as_canonical_extended_json (auth_cmd, NULL);
    char *expected_auth_cmd_str =
       bson_as_canonical_extended_json (expected_auth_cmd, NULL);
 
-   ASSERT_CMPJSON (auth_cmd_str, expected_auth_cmd_str);
+   ASSERT_CMPSTR (auth_cmd_str, expected_auth_cmd_str);
 
    bson_free (auth_cmd_str);
    bson_free (expected_auth_cmd_str);
