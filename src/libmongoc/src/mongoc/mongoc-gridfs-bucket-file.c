@@ -28,6 +28,39 @@ _mongoc_min (const size_t a, const size_t b)
    return a < b ? a : b;
 }
 
+static bool
+_mongoc_index_keys_equal (const bson_t *expected, const bson_t *actual)
+{
+   bson_iter_t iter_expected;
+   bson_iter_t iter_actual;
+
+   bson_iter_init (&iter_expected, expected);
+   bson_iter_init (&iter_actual, actual);
+
+   while (bson_iter_next (&iter_expected)) {
+      /* If the key document has fewer items than expected, indexes are unequal */
+      if (!bson_iter_next (&iter_actual)) {
+         return false;
+      }
+
+      /* If key order does not match, indexes are unequal */
+      if (strcmp (bson_iter_key (&iter_expected), bson_iter_key (&iter_actual)) != 0) {
+         return false;
+      }
+
+      if (bson_iter_as_int64 (&iter_expected) != bson_iter_as_int64 (&iter_actual)) {
+         return false;
+      }
+   }
+
+   /* If our expected document is exhausted, make sure there are no extra keys in the actual key document */
+   if (bson_iter_next (&iter_actual)) {
+      return false;
+   }
+
+   return true;
+}
+
 /*--------------------------------------------------------------------------
  *
  * _mongoc_create_index_if_not_present --
@@ -71,7 +104,7 @@ _mongoc_create_index_if_not_present (mongoc_collection_t *col,
       }
       bson_iter_document (&iter, &data_len, &data);
       bson_init_static (&inner_doc, data, data_len);
-      if (bson_compare (&inner_doc, index) == 0) {
+      if (_mongoc_index_keys_equal (index, &inner_doc)) {
          index_exists = true;
       }
       bson_destroy (&inner_doc);
