@@ -20,129 +20,13 @@
 #include "mongoc-trace-private.h"
 #include "mongoc-stream-gridfs-download-private.h"
 #include "mongoc-stream-gridfs-upload-private.h"
+#include "mongoc-collection-private.h"
 
 /* Returns the minimum of two numbers */
 static size_t
 _mongoc_min (const size_t a, const size_t b)
 {
    return a < b ? a : b;
-}
-
-static bool
-_mongoc_index_keys_equal (const bson_t *expected, const bson_t *actual)
-{
-   bson_iter_t iter_expected;
-   bson_iter_t iter_actual;
-
-   bson_iter_init (&iter_expected, expected);
-   bson_iter_init (&iter_actual, actual);
-
-   while (bson_iter_next (&iter_expected)) {
-      /* If the key document has fewer items than expected, indexes are unequal */
-      if (!bson_iter_next (&iter_actual)) {
-         return false;
-      }
-
-      /* If key order does not match, indexes are unequal */
-      if (strcmp (bson_iter_key (&iter_expected), bson_iter_key (&iter_actual)) != 0) {
-         return false;
-      }
-
-      if (bson_iter_as_int64 (&iter_expected) != bson_iter_as_int64 (&iter_actual)) {
-         return false;
-      }
-   }
-
-   /* If our expected document is exhausted, make sure there are no extra keys in the actual key document */
-   if (bson_iter_next (&iter_actual)) {
-      return false;
-   }
-
-   return true;
-}
-
-/*--------------------------------------------------------------------------
- *
- * _mongoc_create_index_if_not_present --
- *
- *       Creates an index in the given collection if it doesn't exist.
- *
- * Return:
- *       True if the index was already present or was successfully created.
- *       False if an error occurred while trying to create the index.
- *
- *--------------------------------------------------------------------------
- */
-static bool
-_mongoc_create_index_if_not_present (mongoc_collection_t *col,
-                                     const bson_t *index,
-                                     bool unique,
-                                     bson_error_t *error)
-{
-   mongoc_cursor_t *cursor;
-   bool index_exists;
-   bool r;
-   const bson_t *doc;
-   bson_iter_t iter;
-   bson_t inner_doc;
-   char *index_name;
-   bson_t index_command;
-   uint32_t data_len;
-   const uint8_t *data;
-
-   BSON_ASSERT (col);
-   BSON_ASSERT (index);
-
-   cursor = mongoc_collection_find_indexes_with_opts (col, NULL);
-
-   index_exists = false;
-
-   while (mongoc_cursor_next (cursor, &doc)) {
-      r = bson_iter_init_find (&iter, doc, "key");
-      if (!r) {
-         continue;
-      }
-      bson_iter_document (&iter, &data_len, &data);
-      bson_init_static (&inner_doc, data, data_len);
-      if (_mongoc_index_keys_equal (index, &inner_doc)) {
-         index_exists = true;
-      }
-      bson_destroy (&inner_doc);
-   }
-
-   mongoc_cursor_destroy (cursor);
-
-   if (index_exists) {
-      return true;
-   }
-
-   index_name = mongoc_collection_keys_to_index_string (index);
-   bson_init (&index_command);
-   BCON_APPEND (&index_command,
-                "createIndexes",
-                BCON_UTF8 (mongoc_collection_get_name (col)),
-                "indexes",
-                "[",
-                "{",
-                "key",
-                BCON_DOCUMENT (index),
-                "name",
-                BCON_UTF8 (index_name),
-                "unique",
-                BCON_BOOL (unique),
-                "}",
-                "]");
-
-   r = mongoc_collection_write_command_with_opts (
-      col, &index_command, NULL, NULL, error);
-   bson_destroy (&index_command);
-   bson_free (index_name);
-   if (!r) {
-      return false;
-   }
-
-
-   return true;
 }
 
 /*--------------------------------------------------------------------------
@@ -197,23 +81,33 @@ _mongoc_gridfs_bucket_create_indexes (mongoc_gridfs_bucket_t *bucket,
    mongoc_cursor_destroy (cursor);
 
    /* Create files index */
+   bson_init (&opts);
+   BSON_APPEND_UTF8 (&opts, "name", "filename_1_uploadDate_1");
+
    bson_init (&files_index);
    BSON_APPEND_INT32 (&files_index, "filename", 1);
    BSON_APPEND_INT32 (&files_index, "uploadDate", 1);
-   r = _mongoc_create_index_if_not_present (
-      bucket->files, &files_index, false, error);
+
+   r = _mongoc_collection_create_index_if_not_exists (bucket->files, &files_index, &opts, error);
+   bson_destroy (&opts);
    bson_destroy (&files_index);
    if (!r) {
       return false;
    }
 
    /* Create unique chunks index */
+   bson_init (&opts);
+   BSON_APPEND_BOOL (&opts, "unique", true);
+   BSON_APPEND_UTF8 (&opts, "name", "files_id_1_n_1");
+
    bson_init (&chunks_index);
    BSON_APPEND_INT32 (&chunks_index, "files_id", 1);
    BSON_APPEND_INT32 (&chunks_index, "n", 1);
-   r = _mongoc_create_index_if_not_present (
-      bucket->chunks, &chunks_index, true, error);
+
+   r = _mongoc_collection_create_index_if_not_exists (bucket->chunks, &chunks_index, &opts, error);
+   bson_destroy (&opts);
    bson_destroy (&chunks_index);
+
    if (!r) {
       return false;
    }
