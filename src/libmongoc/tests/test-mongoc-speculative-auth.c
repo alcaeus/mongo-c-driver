@@ -306,6 +306,8 @@ _post_ismaster_scram_invalid_auth_response (mock_server_t *srv)
     * scram conversation. */
    mock_server_replies_simple (
       request, "{ 'ok': 1, 'errmsg': 'Cannot mock scram auth conversation' }");
+
+   request_destroy (request);
 }
 
 static void
