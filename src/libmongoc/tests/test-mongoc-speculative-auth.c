@@ -415,18 +415,24 @@ test_speculative_auth_install (TestSuite *suite)
    TestSuite_AddMockServerTest (suite,
                                 "/speculative_auth/request_x509",
                                 test_mongoc_speculative_auth_request_x509);
+#if defined(MONGOC_ENABLE_SSL_OPENSSL) || \
+   defined(MONGOC_ENABLE_SSL_SECURE_TRANSPORT)
    TestSuite_AddMockServerTest (suite,
                                 "/speculative_auth/request_scram",
                                 test_mongoc_speculative_auth_request_scram);
+#endif /* MONGOC_ENABLE_SSL_* */
    TestSuite_AddMockServerTest (suite,
                                 "/speculative_auth_pool/request_none",
                                 test_mongoc_speculative_auth_request_none_pool);
    TestSuite_AddMockServerTest (suite,
                                 "/speculative_auth_pool/request_x509",
                                 test_mongoc_speculative_auth_request_x509_pool);
+#if defined(MONGOC_ENABLE_SSL_OPENSSL) || \
+   defined(MONGOC_ENABLE_SSL_SECURE_TRANSPORT)
    TestSuite_AddMockServerTest (
       suite,
       "/speculative_auth_pool/request_scram",
       test_mongoc_speculative_auth_request_scram_pool);
-#endif
+#endif /* MONGOC_ENABLE_SSL_* */
+#endif /* MONGOC_ENABLE_CRYPTO */
 }
