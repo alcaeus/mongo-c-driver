@@ -109,6 +109,7 @@ _auto_ismaster_without_speculative_auth (request_t *request, void *data)
 
 static void
 _test_mongoc_speculative_auth (bool pooled,
+                               bool use_ssl,
                                setup_uri_options_t setup_uri_options,
                                bool includes_speculative_auth,
                                compare_auth_command_t compare_auth_command,
@@ -132,7 +133,9 @@ _test_mongoc_speculative_auth (bool pooled,
    server = mock_server_new ();
 
 #ifdef MONGOC_ENABLE_SSL
-   mock_server_set_ssl_opts (server, &server_ssl_opts);
+   if (use_ssl) {
+      mock_server_set_ssl_opts (server, &server_ssl_opts);
+   }
 #endif
 
    mock_server_autoresponds (
@@ -154,7 +157,9 @@ _test_mongoc_speculative_auth (bool pooled,
       pool = mongoc_client_pool_new (uri);
 
 #ifdef MONGOC_ENABLE_SSL
-      mongoc_client_pool_set_ssl_opts (pool, &client_ssl_opts);
+      if (use_ssl) {
+         mongoc_client_pool_set_ssl_opts (pool, &client_ssl_opts);
+      }
 #endif
 
       /* Force topology scanner to start */
@@ -165,7 +170,9 @@ _test_mongoc_speculative_auth (bool pooled,
       client = mongoc_client_new_from_uri (uri);
 
 #ifdef MONGOC_ENABLE_SSL
-      mongoc_client_set_ssl_opts (client, &client_ssl_opts);
+      if (use_ssl) {
+         mongoc_client_set_ssl_opts (client, &client_ssl_opts);
+      }
 #endif
    }
 
@@ -313,13 +320,13 @@ _post_ismaster_scram_invalid_auth_response (mock_server_t *srv)
 static void
 test_mongoc_speculative_auth_request_none (void)
 {
-   _test_mongoc_speculative_auth (false, NULL, false, NULL, NULL, NULL, true);
+   _test_mongoc_speculative_auth (false, false, NULL, false, NULL, NULL, NULL, true);
 }
 
 static void
 test_mongoc_speculative_auth_request_none_pool (void)
 {
-   _test_mongoc_speculative_auth (true, NULL, false, NULL, NULL, NULL, true);
+   _test_mongoc_speculative_auth (true, false, NULL, false, NULL, NULL, NULL, true);
 }
 
 static void
@@ -333,6 +340,7 @@ test_mongoc_speculative_auth_request_x509 (void)
                            "myState,C=myCountry"));
 
    _test_mongoc_speculative_auth (false,
+                                  true,
                                   _setup_speculative_auth_x_509,
                                   true,
                                   _compare_auth_cmd_x509,
@@ -354,6 +362,7 @@ test_mongoc_speculative_auth_request_x509_pool (void)
                            "myState,C=myCountry"));
 
    _test_mongoc_speculative_auth (true,
+                                  true,
                                   _setup_speculative_auth_x_509,
                                   true,
                                   _compare_auth_cmd_x509,
@@ -374,6 +383,7 @@ test_mongoc_speculative_auth_request_scram (void)
       BCON_BIN (BSON_SUBTYPE_BINARY, (const uint8_t *) "deadbeef", 8));
 
    _test_mongoc_speculative_auth (false,
+                                  false,
                                   _setup_speculative_auth_scram,
                                   true,
                                   _compare_auth_cmd_scram,
@@ -394,6 +404,7 @@ test_mongoc_speculative_auth_request_scram_pool (void)
       BCON_BIN (BSON_SUBTYPE_BINARY, (const uint8_t *) "deadbeef", 8));
 
    _test_mongoc_speculative_auth (true,
+                                  false,
                                   _setup_speculative_auth_scram,
                                   true,
                                   _compare_auth_cmd_scram,
@@ -412,27 +423,27 @@ test_speculative_auth_install (TestSuite *suite)
    TestSuite_AddMockServerTest (suite,
                                 "/speculative_auth/request_none",
                                 test_mongoc_speculative_auth_request_none);
+#if defined(MONGOC_ENABLE_SSL_OPENSSL) || \
+   defined(MONGOC_ENABLE_SSL_SECURE_TRANSPORT)
    TestSuite_AddMockServerTest (suite,
                                 "/speculative_auth/request_x509",
                                 test_mongoc_speculative_auth_request_x509);
-#if defined(MONGOC_ENABLE_SSL_OPENSSL) || \
-   defined(MONGOC_ENABLE_SSL_SECURE_TRANSPORT)
+#endif /* MONGOC_ENABLE_SSL_* */
    TestSuite_AddMockServerTest (suite,
                                 "/speculative_auth/request_scram",
                                 test_mongoc_speculative_auth_request_scram);
-#endif /* MONGOC_ENABLE_SSL_* */
    TestSuite_AddMockServerTest (suite,
                                 "/speculative_auth_pool/request_none",
                                 test_mongoc_speculative_auth_request_none_pool);
+#if defined(MONGOC_ENABLE_SSL_OPENSSL) || \
+   defined(MONGOC_ENABLE_SSL_SECURE_TRANSPORT)
    TestSuite_AddMockServerTest (suite,
                                 "/speculative_auth_pool/request_x509",
                                 test_mongoc_speculative_auth_request_x509_pool);
-#if defined(MONGOC_ENABLE_SSL_OPENSSL) || \
-   defined(MONGOC_ENABLE_SSL_SECURE_TRANSPORT)
+#endif /* MONGOC_ENABLE_SSL_* */
    TestSuite_AddMockServerTest (
       suite,
       "/speculative_auth_pool/request_scram",
       test_mongoc_speculative_auth_request_scram_pool);
-#endif /* MONGOC_ENABLE_SSL_* */
 #endif /* MONGOC_ENABLE_CRYPTO */
 }
