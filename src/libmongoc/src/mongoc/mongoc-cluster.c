@@ -1558,7 +1558,7 @@ _mongoc_cluster_auth_scram_start (mongoc_cluster_t *cluster,
 
 static bool
 _mongoc_cluster_scram_handle_reply (mongoc_scram_t *scram,
-                                    bson_t *reply,
+                                    const bson_t *reply,
                                     bool *done /* out */,
                                     int *conv_id /* out */,
                                     uint8_t *buf /* out */,
@@ -1649,7 +1649,7 @@ _mongoc_cluster_auth_scram_continue (mongoc_cluster_t *cluster,
                                      mongoc_stream_t *stream,
                                      uint32_t server_id,
                                      mongoc_scram_t *scram,
-                                     bson_t *reply,
+                                     const bson_t *sasl_start_reply,
                                      bson_error_t *error)
 {
    bson_t cmd;
@@ -1660,7 +1660,7 @@ _mongoc_cluster_auth_scram_continue (mongoc_cluster_t *cluster,
    bson_t reply_local;
 
    if (!_mongoc_cluster_scram_handle_reply (
-          scram, reply, &done, &conv_id, buf, sizeof buf, &buflen, error)) {
+          scram, sasl_start_reply, &done, &conv_id, buf, sizeof buf, &buflen, error)) {
       return false;
    }
 
