@@ -109,7 +109,7 @@ _add_ismaster (bson_t *cmd)
    BSON_APPEND_INT32 (cmd, "isMaster", 1);
 }
 
-bool
+void
 _mongoc_topology_scanner_add_speculative_authentication (
    bson_t *cmd,
    const mongoc_uri_t *uri,
@@ -123,7 +123,7 @@ _mongoc_topology_scanner_add_speculative_authentication (
 
    if (!mechanism) {
       if (!mongoc_uri_get_username (uri)) {
-         return false;
+         return;
       }
 
       mechanism = "SCRAM-SHA-256";
@@ -168,8 +168,6 @@ _mongoc_topology_scanner_add_speculative_authentication (
       BSON_APPEND_DOCUMENT (cmd, "speculativeAuthenticate", &auth_cmd);
       bson_destroy (&auth_cmd);
    }
-
-   return has_auth;
 }
 
 static bool

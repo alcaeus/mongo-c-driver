@@ -175,7 +175,7 @@ mongoc_topology_scanner_node_setup (mongoc_topology_scanner_node_t *node,
 mongoc_topology_scanner_node_t *
 mongoc_topology_scanner_get_node (mongoc_topology_scanner_t *ts, uint32_t id);
 
-bool
+void
 _mongoc_topology_scanner_add_speculative_authentication (
    bson_t *cmd,
    const mongoc_uri_t *uri,
