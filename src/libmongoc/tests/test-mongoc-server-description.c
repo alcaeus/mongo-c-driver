@@ -121,7 +121,7 @@ test_server_description_equal (void)
    BSON_ASSERT (_mongoc_server_description_equal (&sd1, &sd2));
 
    /* speculativeAuthentication response differs, still considered equal */
-   bson_reinit (&sd1.last_speculative_auth_response);
+   BSON_APPEND_INT32 (&sd1.last_speculative_auth_response, "ok", 1);
    BSON_ASSERT (_mongoc_server_description_equal (&sd1, &sd2));
 
    /* "type" differs, considered unequal. */
