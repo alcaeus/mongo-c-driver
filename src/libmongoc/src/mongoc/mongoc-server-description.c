@@ -553,7 +553,6 @@ mongoc_server_description_handle_ismaster (mongoc_server_description_t *sd,
       BSON_ASSERT (bson_init_static (&auth_response, data, data_len));
       bson_destroy (&sd->last_speculative_auth_response);
       bson_copy_to (&auth_response, &sd->last_speculative_auth_response);
-      sd->has_speculative_auth_response = true;
    }
 
    BSON_ASSERT (bson_iter_init (&iter, &sd->last_is_master));
@@ -779,8 +778,7 @@ mongoc_server_description_new_copy (
          description->round_trip_time_msec,
          &description->error);
 
-      if (description->has_speculative_auth_response) {
-         copy->has_speculative_auth_response = true;
+      if (!bson_empty (&description->last_speculative_auth_response)) {
          bson_destroy (&copy->last_speculative_auth_response);
          bson_copy_to (&description->last_speculative_auth_response,
                        &copy->last_speculative_auth_response);
@@ -1202,11 +1200,9 @@ void
 _mongoc_server_description_clear_speculative_auth_response (
    mongoc_server_description_t *sd)
 {
-   if (!sd->has_speculative_auth_response) {
+   if (bson_empty (&sd->last_speculative_auth_response)) {
       return;
    }
 
-   sd->has_speculative_auth_response = false;
-   bson_destroy (&sd->last_speculative_auth_response);
-   bson_init (&sd->last_speculative_auth_response);
+   bson_reinit (&sd->last_speculative_auth_response);
 }

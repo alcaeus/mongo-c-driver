@@ -2027,7 +2027,7 @@ _mongoc_cluster_finish_speculative_auth (mongoc_cluster_t *cluster,
       return false;
    }
 
-   if (!sd->has_speculative_auth_response) {
+   if (bson_empty (&sd->last_speculative_auth_response)) {
       return false;
    }
 
