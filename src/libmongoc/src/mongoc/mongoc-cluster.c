@@ -1550,8 +1550,8 @@ _mongoc_cluster_auth_scram_start (mongoc_cluster_t *cluster,
  *       authentication was completed successfully.
  *
  * Side effects:
- *       @error is set on failure. @done, @convid, @buf, and @buflen are set
- *       for use in the next scram step.
+ *       @error is set on failure. @done, @conv_id, @buf, and @buflen are
+ *       set for use in the next scram step.
  *
  *--------------------------------------------------------------------------
  */
