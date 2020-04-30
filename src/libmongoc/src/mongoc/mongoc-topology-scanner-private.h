@@ -182,6 +182,9 @@ _mongoc_topology_scanner_add_speculative_authentication (
    const mongoc_ssl_opt_t *ssl_opts,
    mongoc_scram_t *scram /* out */);
 
+const char *
+_mongoc_topology_scanner_get_speculative_auth_mechanism (const mongoc_uri_t *uri);
+
 const bson_t *
 _mongoc_topology_scanner_get_ismaster (mongoc_topology_scanner_t *ts);
 

@@ -1994,23 +1994,6 @@ _mongoc_cluster_node_new (mongoc_stream_t *stream,
    return node;
 }
 
-static const char *
-_get_auth_mechanism (const mongoc_uri_t *uri)
-{
-   const char *mechanism = mongoc_uri_get_auth_mechanism (uri);
-   bool requires_auth = mechanism || mongoc_uri_get_username (uri);
-
-   if (!requires_auth) {
-      return NULL;
-   }
-
-   if (!mechanism) {
-      return "SCRAM-SHA-256";
-   }
-
-   return mechanism;
-}
-
 static bool
 _mongoc_cluster_finish_speculative_auth (mongoc_cluster_t *cluster,
                                          mongoc_stream_t *stream,
@@ -2018,7 +2001,7 @@ _mongoc_cluster_finish_speculative_auth (mongoc_cluster_t *cluster,
                                          mongoc_scram_t *scram,
                                          bson_error_t *error)
 {
-   const char *mechanism = _get_auth_mechanism (cluster->uri);
+   const char *mechanism = _mongoc_topology_scanner_get_speculative_auth_mechanism (cluster->uri);
    bool ret = false;
 
    BSON_ASSERT (sd);
