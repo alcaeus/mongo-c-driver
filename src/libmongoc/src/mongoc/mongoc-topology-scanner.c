@@ -1181,11 +1181,18 @@ _mongoc_topology_scanner_monitor_heartbeat_succeeded (
 {
    if (ts->apm_callbacks.server_heartbeat_succeeded) {
       mongoc_apm_server_heartbeat_succeeded_t event;
+      bson_t ismaster_redacted;
+
+      bson_init (&ismaster_redacted);
+      bson_copy_to_excluding_noinit (reply, &ismaster_redacted, "speculativeAuthenticate", NULL);
+
       event.host = host;
       event.context = ts->apm_context;
       event.reply = reply;
       event.duration_usec = duration_usec;
       ts->apm_callbacks.server_heartbeat_succeeded (&event);
+
+      bson_destroy (&ismaster_redacted);
    }
 }
 
