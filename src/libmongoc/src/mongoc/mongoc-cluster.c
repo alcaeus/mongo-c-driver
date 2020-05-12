@@ -933,7 +933,7 @@ static mongoc_server_description_t *
 _mongoc_cluster_run_ismaster (mongoc_cluster_t *cluster,
                               mongoc_cluster_node_t *node,
                               uint32_t server_id,
-                              mongoc_scram_cache_t  *scram_cache,
+                              mongoc_scram_cache_t *scram_cache,
                               mongoc_scram_t *scram /* OUT */,
                               bson_error_t *error /* OUT */)
 {
@@ -1662,8 +1662,14 @@ _mongoc_cluster_auth_scram_continue (mongoc_cluster_t *cluster,
    bool done = false;
    bson_t reply_local;
 
-   if (!_mongoc_cluster_scram_handle_reply (
-          scram, sasl_start_reply, &done, &conv_id, buf, sizeof buf, &buflen, error)) {
+   if (!_mongoc_cluster_scram_handle_reply (scram,
+                                            sasl_start_reply,
+                                            &done,
+                                            &conv_id,
+                                            buf,
+                                            sizeof buf,
+                                            &buflen,
+                                            error)) {
       return false;
    }
 
@@ -2008,7 +2014,8 @@ _mongoc_cluster_finish_speculative_auth (mongoc_cluster_t *cluster,
                                          mongoc_scram_t *scram,
                                          bson_error_t *error)
 {
-   const char *mechanism = _mongoc_topology_scanner_get_speculative_auth_mechanism (cluster->uri);
+   const char *mechanism =
+      _mongoc_topology_scanner_get_speculative_auth_mechanism (cluster->uri);
    bool ret = false;
 
    BSON_ASSERT (sd);

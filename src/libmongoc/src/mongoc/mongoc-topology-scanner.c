@@ -110,7 +110,8 @@ _add_ismaster (bson_t *cmd)
 }
 
 const char *
-_mongoc_topology_scanner_get_speculative_auth_mechanism (const mongoc_uri_t *uri)
+_mongoc_topology_scanner_get_speculative_auth_mechanism (
+   const mongoc_uri_t *uri)
 {
    const char *mechanism = mongoc_uri_get_auth_mechanism (uri);
    bool requires_auth = mechanism || mongoc_uri_get_username (uri);
@@ -137,7 +138,8 @@ _mongoc_topology_scanner_add_speculative_authentication (
    bson_t auth_cmd;
    bson_error_t error;
    bool has_auth = false;
-   const char *mechanism = _mongoc_topology_scanner_get_speculative_auth_mechanism (uri);
+   const char *mechanism =
+      _mongoc_topology_scanner_get_speculative_auth_mechanism (uri);
 
    if (!mechanism) {
       return;
@@ -1189,7 +1191,8 @@ _mongoc_topology_scanner_monitor_heartbeat_succeeded (
       bson_t ismaster_redacted;
 
       bson_init (&ismaster_redacted);
-      bson_copy_to_excluding_noinit (reply, &ismaster_redacted, "speculativeAuthenticate", NULL);
+      bson_copy_to_excluding_noinit (
+         reply, &ismaster_redacted, "speculativeAuthenticate", NULL);
 
       event.host = host;
       event.context = ts->apm_context;
