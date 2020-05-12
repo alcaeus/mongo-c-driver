@@ -320,13 +320,15 @@ _post_ismaster_scram_invalid_auth_response (mock_server_t *srv)
 static void
 test_mongoc_speculative_auth_request_none (void)
 {
-   _test_mongoc_speculative_auth (false, false, NULL, false, NULL, NULL, NULL, true);
+   _test_mongoc_speculative_auth (
+      false, false, NULL, false, NULL, NULL, NULL, true);
 }
 
 static void
 test_mongoc_speculative_auth_request_none_pool (void)
 {
-   _test_mongoc_speculative_auth (true, false, NULL, false, NULL, NULL, NULL, true);
+   _test_mongoc_speculative_auth (
+      true, false, NULL, false, NULL, NULL, NULL, true);
 }
 
 static void
