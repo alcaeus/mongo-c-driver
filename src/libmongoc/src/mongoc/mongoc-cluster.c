@@ -1665,13 +1665,13 @@ _mongoc_cluster_auth_scram_continue (mongoc_cluster_t *cluster,
    }
 
    for (;;) {
-      if (done && (scram->step >= 3)) {
-         break;
-      }
-
       if (!_mongoc_scram_step (
              scram, buf, buflen, buf, sizeof buf, &buflen, error)) {
          return false;
+      }
+
+      if (done && (scram->step >= 3)) {
+         break;
       }
 
       bson_init (&cmd);
@@ -1703,6 +1703,10 @@ _mongoc_cluster_auth_scram_continue (mongoc_cluster_t *cluster,
       }
 
       bson_destroy (&reply_local);
+
+      if (done && (scram->step >= 3)) {
+         break;
+      }
    }
 
    TRACE ("%s", "SCRAM: authenticated");
