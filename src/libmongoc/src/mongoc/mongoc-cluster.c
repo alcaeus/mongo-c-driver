@@ -2017,6 +2017,7 @@ _mongoc_cluster_finish_speculative_auth (mongoc_cluster_t *cluster,
    const char *mechanism =
       _mongoc_topology_scanner_get_speculative_auth_mechanism (cluster->uri);
    bool ret = false;
+   bool auth_handled = false;
 
    BSON_ASSERT (sd);
 
@@ -2033,6 +2034,7 @@ _mongoc_cluster_finish_speculative_auth (mongoc_cluster_t *cluster,
       /* For X509, a successful ismaster with speculativeAuthenticate field
        * indicates successful auth */
       ret = true;
+      auth_handled = true;
    }
 #endif
 
@@ -2045,6 +2047,8 @@ _mongoc_cluster_finish_speculative_auth (mongoc_cluster_t *cluster,
          return false;
       }
 
+      auth_handled = true;
+
       ret = _mongoc_cluster_auth_scram_continue (
          cluster,
          stream,
@@ -2054,6 +2058,16 @@ _mongoc_cluster_finish_speculative_auth (mongoc_cluster_t *cluster,
          error);
    }
 #endif
+
+   if (auth_handled) {
+      if (!ret) {
+         mongoc_counter_auth_failure_inc ();
+         MONGOC_DEBUG ("Speculative authentication failed: %s", error->message);
+      } else {
+         mongoc_counter_auth_success_inc ();
+         TRACE ("%s", "Speculative authentication succeeded");
+      }
+   }
 
    _mongoc_server_description_clear_speculative_auth_response (sd);
 
