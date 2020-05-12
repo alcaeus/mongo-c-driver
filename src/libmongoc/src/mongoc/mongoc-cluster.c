@@ -802,6 +802,7 @@ _mongoc_stream_run_ismaster (mongoc_cluster_t *cluster,
                              const char *address,
                              uint32_t server_id,
                              bool negotiate_sasl_supported_mechs,
+                             mongoc_scram_cache_t *scram_cache,
                              mongoc_scram_t *scram,
                              bson_error_t *error)
 {
@@ -835,7 +836,7 @@ _mongoc_stream_run_ismaster (mongoc_cluster_t *cluster,
 #endif
 
       _mongoc_topology_scanner_add_speculative_authentication (
-         copied_command, cluster->uri, ssl_opts, scram);
+         copied_command, cluster->uri, ssl_opts, scram_cache, scram);
    }
 
    if (negotiate_sasl_supported_mechs) {
@@ -932,6 +933,7 @@ static mongoc_server_description_t *
 _mongoc_cluster_run_ismaster (mongoc_cluster_t *cluster,
                               mongoc_cluster_node_t *node,
                               uint32_t server_id,
+                              mongoc_scram_cache_t  *scram_cache,
                               mongoc_scram_t *scram /* OUT */,
                               bson_error_t *error /* OUT */)
 {
@@ -949,6 +951,7 @@ _mongoc_cluster_run_ismaster (mongoc_cluster_t *cluster,
       node->connection_address,
       server_id,
       _mongoc_uri_requires_auth_negotiation (cluster->uri),
+      scram_cache,
       scram,
       error);
 
@@ -2105,7 +2108,7 @@ _mongoc_cluster_add_node (mongoc_cluster_t *cluster,
    cluster_node = _mongoc_cluster_node_new (stream, host->host_and_port);
 
    sd = _mongoc_cluster_run_ismaster (
-      cluster, cluster_node, server_id, &scram, error);
+      cluster, cluster_node, server_id, cluster->scram_cache, &scram, error);
    if (!sd) {
       GOTO (error);
    }
