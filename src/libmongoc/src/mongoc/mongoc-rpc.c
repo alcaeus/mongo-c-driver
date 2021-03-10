@@ -1162,8 +1162,6 @@ _mongoc_cmd_check_ok (const bson_t *doc,
 
    if (code == MONGOC_ERROR_PROTOCOL_ERROR || code == 13390) {
       code = MONGOC_ERROR_QUERY_COMMAND_NOT_FOUND;
-   } else if (code == 0) {
-      code = MONGOC_ERROR_QUERY_FAILURE;
    }
 
    bson_set_error (error, domain, code, "%s", msg);
@@ -1212,8 +1210,6 @@ _mongoc_cmd_check_ok_no_wce (const bson_t *doc,
 
    if (code == MONGOC_ERROR_PROTOCOL_ERROR || code == 13390) {
       code = MONGOC_ERROR_QUERY_COMMAND_NOT_FOUND;
-   } else if (code == 0) {
-      code = MONGOC_ERROR_QUERY_FAILURE;
    }
 
    bson_set_error (error, domain, code, "%s", msg);

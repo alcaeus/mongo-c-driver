@@ -1570,6 +1570,69 @@ test_cluster_command_error_op_query ()
 }
 
 static void
+_test_cluster_command_error_code (bool use_op_msg)
+{
+   mock_server_t *server;
+   mongoc_client_t *client;
+   bson_error_t err;
+   request_t *request;
+   future_t *future;
+
+   if (use_op_msg) {
+      server = mock_server_with_autoismaster (WIRE_VERSION_OP_MSG);
+   } else {
+      server = mock_server_with_autoismaster (WIRE_VERSION_OP_MSG - 1);
+   }
+   mock_server_run (server);
+   client = mongoc_client_new_from_uri (mock_server_get_uri (server));
+   future = future_client_command_simple (client,
+                                          "db",
+                                          tmp_bson ("{'ping': 1}"),
+                                          NULL /* opts */,
+                                          NULL /* read prefs */,
+                                          &err);
+   if (use_op_msg) {
+      request = mock_server_receives_msg (
+         server, MONGOC_QUERY_NONE, tmp_bson ("{'ping': 1}"));
+   } else {
+      request = mock_server_receives_command (
+         server, "db", MONGOC_QUERY_SLAVE_OK, "{'ping': 1}");
+   }
+
+   mock_server_replies_simple (request, "{'ok': 0, 'errmsg': 'Forced error'}");
+   BSON_ASSERT (!future_get_bool (future));
+   future_destroy (future);
+   request_destroy (request);
+
+   if (use_op_msg) {
+      ASSERT_ERROR_CONTAINS (err,
+                             MONGOC_ERROR_QUERY,
+                             0,
+                             "Forced error");
+   } else {
+      ASSERT_ERROR_CONTAINS (err,
+                             MONGOC_ERROR_QUERY,
+                             MONGOC_ERROR_QUERY_FAILURE,
+                             "Forced error");
+   }
+
+   mock_server_destroy (server);
+   mongoc_client_destroy (client);
+}
+
+static void
+test_cluster_command_error_code_op_msg ()
+{
+   _test_cluster_command_error_code (true);
+}
+
+static void
+test_cluster_command_error_code_op_query ()
+{
+   _test_cluster_command_error_code (false);
+}
+
+static void
 test_advanced_cluster_time_not_sent_to_standalone (void)
 {
    mock_server_t *server;
@@ -1969,6 +2032,12 @@ test_cluster_install (TestSuite *suite)
    TestSuite_AddMockServerTest (suite,
                                 "/Cluster/command_error/op_query",
                                 test_cluster_command_error_op_query);
+   TestSuite_AddMockServerTest (suite,
+                                "/Cluster/command_error_code/op_msg",
+                                test_cluster_command_error_code_op_msg);
+   TestSuite_AddMockServerTest (suite,
+                                "/Cluster/command_error_code/op_query",
+                                test_cluster_command_error_code_op_query);
    TestSuite_AddMockServerTest (
       suite, "/Cluster/ismaster_on_unknown/mock", test_ismaster_on_unknown);
    TestSuite_AddLive (

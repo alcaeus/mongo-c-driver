@@ -422,6 +422,13 @@ mongoc_cluster_run_command_opquery (mongoc_cluster_t *cluster,
 
    if (!_mongoc_cmd_check_ok (
           reply_ptr, cluster->client->error_api_version, error)) {
+      /* _mongoc_cmd_check_ok used to return a query failure code when the
+       * response did not contain a "code" field. To restrict this behaviour to
+       * the legacy OP_QUERY functionality, this change is made here. */
+      if (error->code == 0) {
+         error->code = MONGOC_ERROR_QUERY_FAILURE;
+      }
+
       GOTO (done);
    }
 
