@@ -96,15 +96,22 @@ mongoc_server_api_deprecation_errors (mongoc_server_api_t *api,
    mongoc_optional_set_value (&api->deprecation_errors, deprecation_errors);
 }
 
+mongoc_server_api_version_t
+mongoc_server_api_get_version (const mongoc_server_api_t *api)
+{
+   BSON_ASSERT (api);
+   return api->version;
+}
+
 const mongoc_optional_t *
-mongoc_server_api_get_deprecation_errors (mongoc_server_api_t *api)
+mongoc_server_api_get_deprecation_errors (const mongoc_server_api_t *api)
 {
    BSON_ASSERT (api);
    return &api->deprecation_errors;
 }
 
 const mongoc_optional_t *
-mongo_server_api_get_strict (mongoc_server_api_t *api)
+mongoc_server_api_get_strict (const mongoc_server_api_t *api)
 {
    BSON_ASSERT (api);
    return &api->strict;
