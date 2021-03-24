@@ -279,6 +279,7 @@ all_functions = OD([
         export SSL=${SSL}
         export ORCHESTRATION_FILE=${ORCHESTRATION_FILE}
         export OCSP=${OCSP}
+        export REQUIRE_API_VERSION=${REQUIRE_API_VERSION}
         sh .evergreen/integration-tests.sh
         ''', test=False),
     )),

@@ -39,6 +39,7 @@ AUTH=${AUTH:-noauth}
 SSL=${SSL:-nossl}
 TOPOLOGY=${TOPOLOGY:-server}
 OCSP=${OCSP:-off}
+REQUIRE_API_VERSION=${REQUIRE_API_VERSION:-off}
 
 # If caller of script specifies an ORCHESTRATION_FILE, do not attempt to modify it. Otherwise construct it.
 if [ -z "$ORCHESTRATION_FILE" ]; then
@@ -162,7 +163,15 @@ elif [ "$SSL" != "nossl" ]; then
    MONGO_SHELL_CONNECTION_FLAGS="${MONGO_SHELL_CONNECTION_FLAGS} --host localhost --ssl --sslCAFile=$MONGO_ORCHESTRATION_HOME/lib/ca.pem --sslPEMKeyFile=$MONGO_ORCHESTRATION_HOME/lib/client.pem"
 fi
 
+if [ "$REQUIRE_API_VERSION" != "off" ]; then
+   MONGO_SHELL_CONNECTION_FLAGS="${MONGO_SHELL_CONNECTION_FLAGS} --apiVersion=$REQUIRE_API_VERSION"
+fi
+
 echo $MONGO_SHELL_CONNECTION_FLAGS
+
+if [ "$REQUIRE_API_VERSION" != "off" ]; then
+  `pwd`/mongodb/bin/mongo $MONGO_SHELL_CONNECTION_FLAGS --eval 'db.adminCommand({ "setParameter": 1, "requireApiVersion": 1 });' admin
+fi
 
 `pwd`/mongodb/bin/mongo $MONGO_SHELL_CONNECTION_FLAGS --eval 'printjson(db.serverBuildInfo())' admin
 `pwd`/mongodb/bin/mongo $MONGO_SHELL_CONNECTION_FLAGS --eval 'printjson(db.isMaster())' admin
