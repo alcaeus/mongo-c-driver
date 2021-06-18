@@ -280,6 +280,31 @@ all_functions = OD([
         sh .evergreen/integration-tests.sh
         ''', test=False),
     )),
+    ('create serverless instance', Function(
+        shell_mongoc(r'''
+        export PROJECT=${PROJECT}
+        export SERVERLESS_DRIVERS_GROUP=${SERVERLESS_DRIVERS_GROUP}
+        export SERVERLESS_API_PUBLIC_KEY=${SERVERLESS_API_PUBLIC_KEY}
+        export SERVERLESS_API_PRIVATE_KEY=${SERVERLESS_API_PRIVATE_KEY}
+        export SERVERLESS_ATLAS_USER=${SERVERLESS_ATLAS_USER}
+        export SERVERLESS_ATLAS_PASSWORD=${SERVERLESS_ATLAS_PASSWORD}
+        sh .evergreen/serverless/create-instance.sh
+        ''', test=False),
+        OD([('command', 'expansions.update'),
+            ('params', OD([
+                ('file', 'mongoc/serverless-expansion.yml'),
+            ]))]),
+    )),
+    ('delete serverless instance', Function(
+        shell_mongoc(r'''
+        export SERVERLESS_DRIVERS_GROUP=${SERVERLESS_DRIVERS_GROUP}
+        export SERVERLESS_API_PUBLIC_KEY=${SERVERLESS_API_PUBLIC_KEY}
+        export SERVERLESS_API_PRIVATE_KEY=${SERVERLESS_API_PRIVATE_KEY}
+        export SERVERLESS_ATLAS_USER=${SERVERLESS_ATLAS_USER}
+        export SERVERLESS_ATLAS_PASSWORD=${SERVERLESS_ATLAS_PASSWORD}
+        sh .evergreen/serverless/delete-instance.sh
+        ''', test=False),
+    )),
     ('run tests', Function(
         shell_mongoc(r'''
         export COMPRESSORS='${COMPRESSORS}'
@@ -510,6 +535,25 @@ all_functions = OD([
         export MONGODB_API_VERSION=1
         sh .evergreen/run-tests.sh
         unset MONGODB_API_VERSION
+
+        '''),
+    )),
+    ('test serverless', Function(
+        shell_mongoc(r'''
+        export COMPRESSORS='${COMPRESSORS}'
+        export CC='${CC}'
+        export AUTH=noauth
+        export SSL=${SSL}
+        export URI=${MONGODB_URI}
+        export IPV4_ONLY=${IPV4_ONLY}
+        export VALGRIND=${VALGRIND}
+        export MONGOC_TEST_URI=${MONGODB_URI}
+        export DNS=${DNS}
+        export ASAN=${ASAN}
+        export MONGOC_TEST_IS_SERVERLESS=on
+        export MONGOC_TEST_USER=${SERVERLESS_ATLAS_USER}
+        export MONGOC_TEST_PASSWORD=${SERVERLESS_ATLAS_PASSWORD}
+        sh .evergreen/run-tests.sh
 
         '''),
     )),

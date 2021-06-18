@@ -866,6 +866,13 @@ all_tasks = chain(all_tasks, [
         depends_on='debug-compile-nosasl-nossl',
         commands=[func('bootstrap mongo-orchestration', TOPOLOGY='server', AUTH='noauth', SSL='nossl', VERSION='5.0', ORCHESTRATION_FILE='versioned-api-testing'),
                   func('test versioned api', AUTH='noauth', SSL='nossl')]),
+    PostCompileTask(
+        'test-serverless-proxy',
+        tags=['serverless'],
+        depends_on='debug-compile-nosasl-openssl',
+        commands=[func('create serverless instance', PROJECT='libmongoc'),
+                  func('test serverless', AUTH='noauth', SSL='nossl'),
+                  func('delete serverless instance')]),
 ])
 
 

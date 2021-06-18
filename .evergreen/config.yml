@@ -405,6 +405,36 @@ functions:
         export OCSP=${OCSP}
         export REQUIRE_API_VERSION=${REQUIRE_API_VERSION}
         sh .evergreen/integration-tests.sh
+  create serverless instance:
+  - command: shell.exec
+    params:
+      working_dir: mongoc
+      shell: bash
+      script: |-
+        set -o errexit
+        export PROJECT=${PROJECT}
+        export SERVERLESS_DRIVERS_GROUP=${SERVERLESS_DRIVERS_GROUP}
+        export SERVERLESS_API_PUBLIC_KEY=${SERVERLESS_API_PUBLIC_KEY}
+        export SERVERLESS_API_PRIVATE_KEY=${SERVERLESS_API_PRIVATE_KEY}
+        export SERVERLESS_ATLAS_USER=${SERVERLESS_ATLAS_USER}
+        export SERVERLESS_ATLAS_PASSWORD=${SERVERLESS_ATLAS_PASSWORD}
+        sh .evergreen/serverless/create-instance.sh
+  - command: expansions.update
+    params:
+      file: mongoc/serverless-expansion.yml
+  delete serverless instance:
+  - command: shell.exec
+    params:
+      working_dir: mongoc
+      shell: bash
+      script: |-
+        set -o errexit
+        export SERVERLESS_DRIVERS_GROUP=${SERVERLESS_DRIVERS_GROUP}
+        export SERVERLESS_API_PUBLIC_KEY=${SERVERLESS_API_PUBLIC_KEY}
+        export SERVERLESS_API_PRIVATE_KEY=${SERVERLESS_API_PRIVATE_KEY}
+        export SERVERLESS_ATLAS_USER=${SERVERLESS_ATLAS_USER}
+        export SERVERLESS_ATLAS_PASSWORD=${SERVERLESS_ATLAS_PASSWORD}
+        sh .evergreen/serverless/delete-instance.sh
   run tests:
   - command: shell.exec
     type: test
@@ -713,6 +743,28 @@ functions:
         export MONGODB_API_VERSION=1
         sh .evergreen/run-tests.sh
         unset MONGODB_API_VERSION
+  test serverless:
+  - command: shell.exec
+    type: test
+    params:
+      working_dir: mongoc
+      shell: bash
+      script: |-
+        set -o errexit
+        export COMPRESSORS='${COMPRESSORS}'
+        export CC='${CC}'
+        export AUTH=noauth
+        export SSL=${SSL}
+        export URI=${MONGODB_URI}
+        export IPV4_ONLY=${IPV4_ONLY}
+        export VALGRIND=${VALGRIND}
+        export MONGOC_TEST_URI=${MONGODB_URI}
+        export DNS=${DNS}
+        export ASAN=${ASAN}
+        export MONGOC_TEST_IS_SERVERLESS=on
+        export MONGOC_TEST_USER=${SERVERLESS_ATLAS_USER}
+        export MONGOC_TEST_PASSWORD=${SERVERLESS_ATLAS_PASSWORD}
+        sh .evergreen/run-tests.sh
   run aws tests:
   - command: shell.exec
     type: test
@@ -19550,6 +19602,23 @@ tasks:
     vars:
       AUTH: noauth
       SSL: nossl
+- name: test-serverless-proxy
+  tags:
+  - serverless
+  depends_on:
+    name: debug-compile-nosasl-openssl
+  commands:
+  - func: fetch build
+    vars:
+      BUILD_NAME: debug-compile-nosasl-openssl
+  - func: create serverless instance
+    vars:
+      PROJECT: libmongoc
+  - func: test serverless
+    vars:
+      AUTH: noauth
+      SSL: nossl
+  - func: delete serverless instance
 - name: build-and-run-authentication-tests-openssl-0.9.8
   commands:
   - func: install ssl
@@ -27301,3 +27370,9 @@ buildvariants:
   - debug-compile-nosasl-openssl
   - debug-compile-nosasl-nossl
   - .versioned-api
+- name: serverless
+  display_name: Serverless proxy Tests
+  run_on: ubuntu1804-test
+  tasks:
+  - debug-compile-nosasl-openssl
+  - .serverless

@@ -7,6 +7,10 @@ if [ -z "$PROJECT" ]; then
     echo "Project name must be provided via PROJECT environment variable"
     exit 1
 fi
+
+# Seed random number generator
+RANDOM=$(date +%s%N | cut -b10-19)
+
 INSTANCE_NAME="$RANDOM-$PROJECT"
 
 if [ -z "$SERVERLESS_DRIVERS_GROUP" ]; then
@@ -62,7 +66,8 @@ while [ true ]; do
     API_RESPONSE=`SERVERLESS_INSTANCE_NAME=$INSTANCE_NAME bash $DIR/get-instance.sh`
     STATE_NAME=`echo $API_RESPONSE | $PYTHON_BINARY -c "import sys, json; print(json.load(sys.stdin)['stateName'])" | tr -d '\r\n'`
 
-    if [ "$STATE_NAME" = "IDLE" ]; then
+    case "$STATE_NAME" in
+      "IDLE")
         duration="$SECONDS"
         echo "setup done! ($(($duration / 60))m $(($duration % 60))s elapsed)"
         echo "SERVERLESS_INSTANCE_NAME=\"$INSTANCE_NAME\""
@@ -80,8 +85,13 @@ TOPOLOGY: sharded_cluster
 SERVERLESS: serverless
 EOF
         exit 0
-    else
-        echo "setup still in progress, status=$STATE_NAME, sleeping for 1 minute..."
+      ;;
+      "CREATING")
+        echo "Setup still in progress, status=\"$STATE_NAME\", sleeping for 1 minute..."
         sleep 60
-    fi
+      ;;
+      *)
+        echo "Unexpected status \"$STATE_NAME\", aborting."
+        exit 1
+    esac
 done

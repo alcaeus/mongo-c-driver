@@ -671,5 +671,11 @@ all_variants = [
         ['debug-compile-nosasl-openssl',
          'debug-compile-nosasl-nossl',
          '.versioned-api'],
-        {})
+        {}),
+    Variant('serverless',
+        'Serverless proxy Tests',
+        'ubuntu1804-test',
+        ['debug-compile-nosasl-openssl',
+         '.serverless'],
+        {}),
 ]
