@@ -205,6 +205,8 @@ test_topology_reconcile_install (TestSuite *suite);
 extern void
 test_transactions_install (TestSuite *suite);
 extern void
+test_transactions_convenient_api_install (TestSuite *suite);
+extern void
 test_topology_scanner_install (TestSuite *suite);
 extern void
 test_uri_install (TestSuite *suite);
@@ -2771,11 +2773,150 @@ windows_exception_handler (EXCEPTION_POINTERS *pExceptionInfo)
 }
 #endif
 
+static void _install_bson_suite (TestSuite *suite)
+{
+   test_atomic_install (suite);
+   test_bcon_basic_install (suite);
+   test_bcon_extract_install (suite);
+   test_bson_corpus_install (suite);
+   test_bson_error_install (suite);
+   test_bson_install (suite);
+   test_bson_version_install (suite);
+   test_clock_install (suite);
+   test_decimal128_install (suite);
+   test_endian_install (suite);
+   test_iso8601_install (suite);
+   test_iter_install (suite);
+   test_json_install (suite);
+   test_oid_install (suite);
+   test_reader_install (suite);
+   test_string_install (suite);
+   test_utf8_install (suite);
+   test_value_install (suite);
+   test_writer_install (suite);
+   test_b64_install (suite);
+}
+
+static void _install_mongoc_suite (TestSuite *suite)
+{
+   test_aggregate_install (suite);
+   test_array_install (suite);
+   test_async_install (suite);
+   test_buffer_install (suite);
+   test_change_stream_install (suite);
+   test_client_install (suite);
+   test_client_max_staleness_install (suite);
+   test_client_hedged_reads_install (suite);
+   test_client_pool_install (suite);
+   test_client_cmd_install (suite);
+   test_client_versioned_api_install (suite);
+   test_write_command_install (suite);
+   test_bulk_install (suite);
+   test_cluster_install (suite);
+   test_collection_install (suite);
+   test_collection_find_install (suite);
+   test_collection_find_with_opts_install (suite);
+   test_connection_uri_install (suite);
+   test_command_monitoring_install (suite);
+   test_cursor_install (suite);
+   test_database_install (suite);
+   test_error_install (suite);
+   test_exhaust_install (suite);
+   test_find_and_modify_install (suite);
+   test_gridfs_install (suite);
+   test_gridfs_bucket_install (suite);
+   test_gridfs_file_page_install (suite);
+   test_handshake_install (suite);
+   test_linux_distro_scanner_install (suite);
+   test_list_install (suite);
+   test_log_install (suite);
+   test_long_namespace_install (suite);
+   test_matcher_install (suite);
+   test_mongos_pinning_install (suite);
+   test_queue_install (suite);
+   test_primary_stepdown_install (suite);
+   test_read_concern_install (suite);
+   test_read_write_concern_install (suite);
+   test_read_prefs_install (suite);
+   test_retryable_writes_install (suite);
+   test_retryable_reads_install (suite);
+   test_rpc_install (suite);
+   test_socket_install (suite);
+   test_opts_install (suite);
+   test_topology_scanner_install (suite);
+   test_topology_reconcile_install (suite);
+   test_transactions_convenient_api_install (suite);
+   test_transactions_install (suite);
+   test_samples_install (suite);
+   test_scram_install (suite);
+   test_sdam_install (suite);
+   test_sdam_monitoring_install (suite);
+   test_server_selection_install (suite);
+   test_dns_install (suite);
+   test_server_selection_errors_install (suite);
+   test_session_install (suite);
+   test_set_install (suite);
+   test_speculative_auth_install (suite);
+   test_stream_install (suite);
+   test_thread_install (suite);
+   test_topology_install (suite);
+   test_topology_description_install (suite);
+   test_uri_install (suite);
+   test_usleep_install (suite);
+   test_util_install (suite);
+   test_version_install (suite);
+   test_with_transaction_install (suite);
+   test_write_concern_install (suite);
+#ifdef MONGOC_ENABLE_SSL
+   test_stream_tls_install (suite);
+   test_x509_install (suite);
+   test_stream_tls_error_install (suite);
+#endif
+#ifdef MONGOC_ENABLE_SASL_CYRUS
+   test_cyrus_install (suite);
+#endif
+   test_happy_eyeballs_install (suite);
+   test_counters_install (suite);
+   test_crud_install (suite);
+   test_mongohouse_install (suite);
+   test_apm_install (suite);
+   test_client_side_encryption_install (suite);
+   test_server_description_install (suite);
+   test_aws_install (suite);
+   test_streamable_hello_install (suite);
+#if defined(MONGOC_ENABLE_OCSP_OPENSSL) && OPENSSL_VERSION_NUMBER >= 0x10101000L
+   test_ocsp_cache_install (suite);
+#endif
+   test_interrupt_install (suite);
+   test_monitoring_install (suite);
+   test_http_install (suite);
+   test_install_unified (suite);
+   test_timeout_install (suite);
+   test_bson_match_install (suite);
+   test_bson_util_install (suite);
+   test_result_install (suite);
+   test_loadbalanced_install (suite);
+   test_server_stream_install (suite);
+   test_generation_map_install (suite);
+}
+
+static void _install_serverless_suite (TestSuite *suite)
+{
+   test_crud_install (suite);
+   test_retryable_writes_install (suite);
+   test_retryable_reads_install (suite);
+   test_client_versioned_api_install (suite);
+   test_session_install (suite);
+   test_transactions_install (suite);
+}
+
 int
 main (int argc, char *argv[])
 {
    TestSuite suite;
    int ret;
+   bool is_serverless =
+      test_framework_getenv_bool ("MONGOC_TEST_IS_SERVERLESS");
 
 #if defined(_MSC_VER) && defined(_WIN64)
    SetUnhandledExceptionFilter (windows_exception_handler);
@@ -2798,131 +2939,15 @@ main (int argc, char *argv[])
 #endif
 
    TestSuite_Init (&suite, "", argc, argv);
-   TestSuite_Add (&suite, "/TestSuite/version_cmp", test_version_cmp);
 
-   /* libbson */
+   if (is_serverless) {
+      _install_serverless_suite (&suite);
+   } else {
+      TestSuite_Add (&suite, "/TestSuite/version_cmp", test_version_cmp);
 
-   test_atomic_install (&suite);
-   test_bcon_basic_install (&suite);
-   test_bcon_extract_install (&suite);
-   test_bson_corpus_install (&suite);
-   test_bson_error_install (&suite);
-   test_bson_install (&suite);
-   test_bson_version_install (&suite);
-   test_clock_install (&suite);
-   test_decimal128_install (&suite);
-   test_endian_install (&suite);
-   test_iso8601_install (&suite);
-   test_iter_install (&suite);
-   test_json_install (&suite);
-   test_oid_install (&suite);
-   test_reader_install (&suite);
-   test_string_install (&suite);
-   test_utf8_install (&suite);
-   test_value_install (&suite);
-   test_writer_install (&suite);
-   test_b64_install (&suite);
-
-   /* libmongoc */
-
-   test_aggregate_install (&suite);
-   test_array_install (&suite);
-   test_async_install (&suite);
-   test_buffer_install (&suite);
-   test_change_stream_install (&suite);
-   test_client_install (&suite);
-   test_client_max_staleness_install (&suite);
-   test_client_hedged_reads_install (&suite);
-   test_client_pool_install (&suite);
-   test_client_cmd_install (&suite);
-   test_client_versioned_api_install (&suite);
-   test_write_command_install (&suite);
-   test_bulk_install (&suite);
-   test_cluster_install (&suite);
-   test_collection_install (&suite);
-   test_collection_find_install (&suite);
-   test_collection_find_with_opts_install (&suite);
-   test_connection_uri_install (&suite);
-   test_command_monitoring_install (&suite);
-   test_cursor_install (&suite);
-   test_database_install (&suite);
-   test_error_install (&suite);
-   test_exhaust_install (&suite);
-   test_find_and_modify_install (&suite);
-   test_gridfs_install (&suite);
-   test_gridfs_bucket_install (&suite);
-   test_gridfs_file_page_install (&suite);
-   test_handshake_install (&suite);
-   test_linux_distro_scanner_install (&suite);
-   test_list_install (&suite);
-   test_log_install (&suite);
-   test_long_namespace_install (&suite);
-   test_matcher_install (&suite);
-   test_mongos_pinning_install (&suite);
-   test_queue_install (&suite);
-   test_primary_stepdown_install (&suite);
-   test_read_concern_install (&suite);
-   test_read_write_concern_install (&suite);
-   test_read_prefs_install (&suite);
-   test_retryable_writes_install (&suite);
-   test_retryable_reads_install (&suite);
-   test_rpc_install (&suite);
-   test_socket_install (&suite);
-   test_opts_install (&suite);
-   test_topology_scanner_install (&suite);
-   test_topology_reconcile_install (&suite);
-   test_transactions_install (&suite);
-   test_samples_install (&suite);
-   test_scram_install (&suite);
-   test_sdam_install (&suite);
-   test_sdam_monitoring_install (&suite);
-   test_server_selection_install (&suite);
-   test_dns_install (&suite);
-   test_server_selection_errors_install (&suite);
-   test_session_install (&suite);
-   test_set_install (&suite);
-   test_speculative_auth_install (&suite);
-   test_stream_install (&suite);
-   test_thread_install (&suite);
-   test_topology_install (&suite);
-   test_topology_description_install (&suite);
-   test_uri_install (&suite);
-   test_usleep_install (&suite);
-   test_util_install (&suite);
-   test_version_install (&suite);
-   test_with_transaction_install (&suite);
-   test_write_concern_install (&suite);
-#ifdef MONGOC_ENABLE_SSL
-   test_stream_tls_install (&suite);
-   test_x509_install (&suite);
-   test_stream_tls_error_install (&suite);
-#endif
-#ifdef MONGOC_ENABLE_SASL_CYRUS
-   test_cyrus_install (&suite);
-#endif
-   test_happy_eyeballs_install (&suite);
-   test_counters_install (&suite);
-   test_crud_install (&suite);
-   test_mongohouse_install (&suite);
-   test_apm_install (&suite);
-   test_client_side_encryption_install (&suite);
-   test_server_description_install (&suite);
-   test_aws_install (&suite);
-   test_streamable_hello_install (&suite);
-#if defined(MONGOC_ENABLE_OCSP_OPENSSL) && OPENSSL_VERSION_NUMBER >= 0x10101000L
-   test_ocsp_cache_install (&suite);
-#endif
-   test_interrupt_install (&suite);
-   test_monitoring_install (&suite);
-   test_http_install (&suite);
-   test_install_unified (&suite);
-   test_timeout_install (&suite);
-   test_bson_match_install (&suite);
-   test_bson_util_install (&suite);
-   test_result_install (&suite);
-   test_loadbalanced_install (&suite);
-   test_server_stream_install (&suite);
-   test_generation_map_install (&suite);
+      _install_bson_suite (&suite);
+      _install_mongoc_suite (&suite);
+   }
 
    ret = TestSuite_Run (&suite);
 

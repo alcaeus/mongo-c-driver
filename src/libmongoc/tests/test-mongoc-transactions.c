@@ -1178,13 +1178,6 @@ test_transactions_install (TestSuite *suite)
                                        test_framework_skip_if_no_txns,
                                        test_framework_skip_if_slow);
 
-   test_framework_resolve_path (JSON_DIR "/with_transaction", resolved);
-   install_json_test_suite_with_check (suite,
-                                       resolved,
-                                       test_transactions_cb,
-                                       test_framework_skip_if_no_txns,
-                                       test_framework_skip_if_slow);
-
    TestSuite_AddFull (suite,
                       "/transactions/supported",
                       test_transactions_supported,
@@ -1257,4 +1250,17 @@ test_transactions_install (TestSuite *suite)
                       NULL,
                       NULL,
                       test_framework_skip_if_no_crypto);
+}
+
+void
+test_transactions_convenient_api_install (TestSuite *suite)
+{
+   char resolved[PATH_MAX];
+
+   test_framework_resolve_path (JSON_DIR "/with_transaction", resolved);
+   install_json_test_suite_with_check (suite,
+                                       resolved,
+                                       test_transactions_cb,
+                                       test_framework_skip_if_no_txns,
+                                       test_framework_skip_if_slow);
 }
