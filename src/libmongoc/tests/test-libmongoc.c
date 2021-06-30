@@ -704,9 +704,11 @@ test_framework_get_host (void)
    if (env_uri) {
       /* choose first host */
       hosts = mongoc_uri_get_hosts (env_uri);
-      host = bson_strdup (hosts->host);
-      mongoc_uri_destroy (env_uri);
-      return host;
+      if (hosts) {
+         host = bson_strdup (hosts->host);
+         mongoc_uri_destroy (env_uri);
+         return host;
+      }
    }
 
    host = test_framework_getenv ("MONGOC_TEST_HOST");
@@ -742,20 +744,23 @@ test_framework_get_port (void)
    if (env_uri) {
       /* choose first port */
       hosts = mongoc_uri_get_hosts (env_uri);
-      port = hosts->port;
-      mongoc_uri_destroy (env_uri);
-   } else {
-      port_str = test_framework_getenv ("MONGOC_TEST_PORT");
-      if (port_str && strlen (port_str)) {
-         port = strtoul (port_str, NULL, 10);
-         if (port == 0 || port > UINT16_MAX) {
-            /* parse err or port out of range -- mongod prohibits port 0 */
-            port = MONGOC_DEFAULT_PORT;
-         }
+      if (hosts) {
+         port = hosts->port;
+         mongoc_uri_destroy (env_uri);
+         return (uint16_t) port;
       }
-
-      bson_free (port_str);
    }
+
+   port_str = test_framework_getenv ("MONGOC_TEST_PORT");
+   if (port_str && strlen (port_str)) {
+      port = strtoul (port_str, NULL, 10);
+      if (port == 0 || port > UINT16_MAX) {
+         /* parse err or port out of range -- mongod prohibits port 0 */
+         port = MONGOC_DEFAULT_PORT;
+      }
+   }
+
+   bson_free (port_str);
 
    return (uint16_t) port;
 }
@@ -917,8 +922,10 @@ test_framework_add_user_password (const char *uri_str,
                                   const char *user,
                                   const char *password)
 {
+   const char *protocol = strncmp (uri_str, "mongodb+srv://", 14) ? "mongodb://" : "mongodb+srv://";
+
    return bson_strdup_printf (
-      "mongodb://%s:%s@%s", user, password, uri_str + strlen ("mongodb://"));
+      "%s%s:%s@%s", protocol, user, password, uri_str + strlen (protocol));
 }
 
 
@@ -1203,8 +1210,14 @@ uri_str_has_db (bson_string_t *uri_string)
 {
    const char *after_scheme;
 
-   ASSERT_STARTSWITH (uri_string->str, "mongodb://");
-   after_scheme = uri_string->str + strlen ("mongodb://");
+   if (NULL != strstr (uri_string->str, "mongodb://")) {
+      after_scheme = uri_string->str + strlen ("mongodb://");
+   } else if (NULL != strstr (uri_string->str, "mongodb+srv://")) {
+      after_scheme = uri_string->str + strlen ("mongodb+srv://");
+   } else {
+      test_error ("URI does not use mongodb or mongodb+srv protocol.");
+   }
+
    return strchr (after_scheme, '/') != NULL;
 }
 
