@@ -1324,8 +1324,10 @@ deactivate_fail_points (mongoc_client_t *client, uint32_t server_id)
       }
    }
 
-   if (sd->max_wire_version >= WIRE_VERSION_4_4) {
-      /* failGetMoreAfterCursorCheckout added in 4.4 */
+   if (sd->max_wire_version >= WIRE_VERSION_4_4 &&
+       !test_framework_is_serverless ()) {
+      /* failGetMoreAfterCursorCheckout added in 4.4, not available in
+       * serverless */
       command = tmp_bson ("{'configureFailPoint': "
                           "'failGetMoreAfterCursorCheckout', 'mode': 'off'}");
       r = mongoc_client_command_simple_with_server_id (
