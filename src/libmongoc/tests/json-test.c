@@ -1369,7 +1369,8 @@ kill_all_sessions (mongoc_client_t *client, uint32_t server_id)
    if (!r &&
        (error.domain != MONGOC_ERROR_SERVER ||
         (error.code != 11601 && error.code != 59)) &&
-       (strstr (error.message, "is unsupported") == NULL)) {
+       (strstr (error.message, "is unsupported") == NULL) &&
+       (strstr (error.message, "not authorized") == NULL)) {
       MONGOC_WARNING ("Error in killAllSessions: %s", error.message);
 
       return false;
