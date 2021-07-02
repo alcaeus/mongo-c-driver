@@ -871,6 +871,8 @@ all_tasks = chain(all_tasks, [
         tags=['serverless'],
         depends_on='debug-compile-nosasl-openssl',
         commands=[func('create serverless instance', PROJECT='libmongoc'),
+                  # We're setting nossl here to avoid run-tests.sh using wrong certificates
+                  # The connection string contains the necessary options to enable TLS
                   func('test serverless', AUTH='noauth', SSL='nossl'),
                   func('delete serverless instance')]),
 ])

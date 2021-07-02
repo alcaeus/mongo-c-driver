@@ -553,6 +553,7 @@ all_functions = OD([
         export MONGOC_TEST_IS_SERVERLESS=on
         export MONGOC_TEST_USER=${SERVERLESS_ATLAS_USER}
         export MONGOC_TEST_PASSWORD=${SERVERLESS_ATLAS_PASSWORD}
+        export MONGOC_TEST_SSL=on
         sh .evergreen/run-tests.sh
 
         '''),
