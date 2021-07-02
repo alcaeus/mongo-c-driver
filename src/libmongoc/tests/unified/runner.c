@@ -378,11 +378,14 @@ test_runner_new (void)
                                       NULL,
                                       &reply,
                                       &error)) {
-      test_error ("error getting server parameters: %s, full reply: %s",
-                  error.message,
-                  tmp_json (&reply));
+      MONGOC_WARNING ("error getting server parameters: %s, full reply: %s",
+                      error.message,
+                      tmp_json (&reply));
+      test_runner->server_parameters = bson_new ();
+   } else {
+      test_runner->server_parameters = bson_copy (&reply);
    }
-   test_runner->server_parameters = bson_copy (&reply);
+
    bson_destroy (&reply);
    return test_runner;
 }
