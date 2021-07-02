@@ -784,7 +784,7 @@ TestSuite_PrintJsonHeader (TestSuite *suite, /* IN */
    fprintf (stream, "{\n");
    TestSuite_PrintJsonSystemHeader (stream);
    fprintf (stream,
-            "  \"auth\": { \"user\": \"%s\", \"pass\": \"%s\" }, \n"
+            "  \"auth\": { \"user\": \"%s\", \"pass\": \"<redacted>\" }, \n"
             "  \"addr\": { \"host\": \"%s\", \"port\": %d, \"uri\": \"%s\" },\n"
             "  \"gssapi\": { \"host\": \"%s\", \"user\": \"%s\" }, \n"
             "  \"uds\": \"%s\", \n"
@@ -813,7 +813,6 @@ TestSuite_PrintJsonHeader (TestSuite *suite, /* IN */
             "  },\n"
             "  \"results\": [\n",
             egetenv ("MONGOC_TEST_USER"),
-            egetenv ("MONGOC_TEST_PASSWORD"),
             hostname,
             port,
             egetenv ("MONGOC_TEST_URI"),
