@@ -1339,6 +1339,46 @@ deactivate_fail_points (mongoc_client_t *client, uint32_t server_id)
 }
 
 
+bool
+kill_all_sessions (mongoc_client_t *client, uint32_t server_id)
+{
+   bson_error_t error;
+   bool r;
+
+   if (server_id) {
+      r = mongoc_client_command_simple_with_server_id (
+         client,
+         "admin",
+         tmp_bson ("{'killAllSessions': []}"),
+         NULL,
+         server_id,
+         NULL,
+         &error);
+   } else {
+      r = mongoc_client_command_with_opts (client,
+                                           "admin",
+                                           tmp_bson ("{'killAllSessions': []}"),
+                                           NULL,
+                                           NULL,
+                                           NULL,
+                                           &error);
+   }
+
+   /* expect "operation was interrupted", ignore "command not found", "is not
+    * supported", and "not authorized" */
+   if (!r &&
+       (error.domain != MONGOC_ERROR_SERVER ||
+        (error.code != 11601 && error.code != 59)) &&
+       (strstr (error.message, "is unsupported") == NULL)) {
+      MONGOC_WARNING ("Error in killAllSessions: %s", error.message);
+
+      return false;
+   }
+
+   return true;
+}
+
+
 void
 set_uri_opts_from_bson (mongoc_uri_t *uri, const bson_t *opts)
 {
@@ -1663,7 +1703,6 @@ run_json_general_test (const json_test_config_t *config)
       mongoc_collection_t *collection;
       uint32_t server_id;
       bson_error_t error;
-      bool r;
       bson_iter_t uri_iter;
 
       ASSERT (BSON_ITER_HOLDS_DOCUMENT (&tests_iter));
@@ -1732,22 +1771,7 @@ run_json_general_test (const json_test_config_t *config)
          client->topology, MONGOC_SS_WRITE, NULL, &error);
       ASSERT_OR_PRINT (server_id, error);
       deactivate_fail_points (client, server_id);
-      r = mongoc_client_command_with_opts (client,
-                                           "admin",
-                                           tmp_bson ("{'killAllSessions': []}"),
-                                           NULL,
-                                           NULL,
-                                           NULL,
-                                           &error);
-
-      /* expect "operation was interrupted", ignore "command not found" or "is
-       * not supported" */
-      if (!r &&
-          (error.domain != MONGOC_ERROR_SERVER ||
-           (error.code != 11601 && error.code != 59)) &&
-          (strstr (error.message, "is unsupported") == NULL)) {
-         MONGOC_WARNING ("Error in killAllSessions: %s", error.message);
-      }
+      kill_all_sessions (client, 0);
 
       set_auto_encryption_opts (client, &test);
       /* Drop and recreate test database/collection if necessary. */

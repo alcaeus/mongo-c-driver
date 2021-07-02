@@ -87,6 +87,9 @@ activate_fail_point (mongoc_client_t *client,
 void
 deactivate_fail_points (mongoc_client_t *client, uint32_t server_id);
 
+bool
+kill_all_sessions (mongoc_client_t *client, uint32_t server_id);
+
 void
 run_json_general_test (const json_test_config_t *config);
 

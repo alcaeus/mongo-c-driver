@@ -401,7 +401,6 @@ run_one_integration_test (json_test_config_t *config, bson_t *test)
 {
    json_test_ctx_t ctx;
    json_test_ctx_t thread_ctx[2];
-   bson_error_t error;
    mongoc_client_pool_t *pool;
    mongoc_client_t *setup_client;
    const char *db_name;
@@ -431,12 +430,7 @@ run_one_integration_test (json_test_config_t *config, bson_t *test)
    setup_client = test_framework_new_default_client ();
    /* Disable failpoints that may have been enabled in a previous test run. */
    deactivate_failpoints_on_all_servers (setup_client);
-   mongoc_client_command_simple (setup_client,
-                                 "admin",
-                                 tmp_bson ("{'killAllSessions': []}"),
-                                 NULL,
-                                 NULL,
-                                 &error);
+   kill_all_sessions (setup_client, 0);
 
    insert_data (db_name, coll_name, config->scenario);
 
