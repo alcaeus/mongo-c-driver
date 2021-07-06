@@ -2971,7 +2971,8 @@ test_session_install (TestSuite *suite)
                       NULL,
                       NULL,
                       test_framework_skip_if_no_cluster_time,
-                      test_framework_skip_if_no_crypto);
+                      test_framework_skip_if_no_crypto,
+                      test_framework_skip_if_serverless);
    TestSuite_AddFull (suite,
                       "/Session/change_stream_implicit_session",
                       test_change_stream_implicit_session,
