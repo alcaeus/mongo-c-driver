@@ -48,8 +48,11 @@ test_all_spec_tests (TestSuite *suite)
    test_framework_resolve_path (JSON_DIR "/read_write_concern/operation",
                                 resolved);
 
-   install_json_test_suite_with_check (
-      suite, resolved, &test_crud_cb, TestSuite_CheckLive);
+   install_json_test_suite_with_check (suite,
+                                       resolved,
+                                       &test_crud_cb,
+                                       TestSuite_CheckLive,
+                                       test_framework_skip_if_serverless);
 }
 
 static void
