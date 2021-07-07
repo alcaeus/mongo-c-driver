@@ -1088,7 +1088,6 @@ test_framework_get_unix_domain_socket_uri_str ()
    return test_uri_str_auth;
 }
 
-
 /*
  *--------------------------------------------------------------------------
  *
@@ -1102,30 +1101,11 @@ test_framework_get_unix_domain_socket_uri_str ()
  *--------------------------------------------------------------------------
  */
 static void
-call_hello_with_host_and_port (char *host_and_port, bson_t *reply)
+call_hello_with_uri_string (const char *uri_str, bson_t *reply)
 {
-   char *user;
-   char *password;
-   char *uri_str;
    mongoc_uri_t *uri;
    mongoc_client_t *client;
    bson_error_t error;
-
-   if (test_framework_get_user_password (&user, &password)) {
-      uri_str =
-         bson_strdup_printf ("mongodb://%s:%s@%s%s",
-                             user,
-                             password,
-                             host_and_port,
-                             test_framework_get_ssl () ? "/?ssl=true" : "");
-      bson_free (user);
-      bson_free (password);
-   } else {
-      uri_str =
-         bson_strdup_printf ("mongodb://%s%s",
-                             host_and_port,
-                             test_framework_get_ssl () ? "/?ssl=true" : "");
-   }
 
    uri = mongoc_uri_new (uri_str);
    BSON_ASSERT (uri);
@@ -1147,16 +1127,16 @@ call_hello_with_host_and_port (char *host_and_port, bson_t *reply)
 #endif
 
    if (!mongoc_client_command_simple (
-          client, "admin", tmp_bson ("{'hello': 1}"), NULL, reply, &error)) {
+      client, "admin", tmp_bson ("{'hello': 1}"), NULL, reply, &error)) {
       bson_destroy (reply);
 
       if (!mongoc_client_command_simple (
-             client,
-             "admin",
-             tmp_bson ("{'" HANDSHAKE_CMD_LEGACY_HELLO "': 1}"),
-             NULL,
-             reply,
-             &error)) {
+         client,
+         "admin",
+         tmp_bson ("{'" HANDSHAKE_CMD_LEGACY_HELLO "': 1}"),
+         NULL,
+         reply,
+         &error)) {
          fprintf (stderr, "error calling legacy hello: '%s'\n", error.message);
          fprintf (stderr, "URI = %s\n", uri_str);
          abort ();
@@ -1165,6 +1145,45 @@ call_hello_with_host_and_port (char *host_and_port, bson_t *reply)
 
    mongoc_client_destroy (client);
    mongoc_uri_destroy (uri);
+}
+
+/*
+ *--------------------------------------------------------------------------
+ *
+ * call_hello_with_host_and_port --
+ *
+ *       Call hello or legacy hello on a server, possibly over SSL.
+ *
+ * Side effects:
+ *       Fills reply with hello response. Logs and aborts on error.
+ *
+ *--------------------------------------------------------------------------
+ */
+static void
+call_hello_with_host_and_port (char *host_and_port, bson_t *reply)
+{
+   char *user;
+   char *password;
+   char *uri_str;
+
+   if (test_framework_get_user_password (&user, &password)) {
+      uri_str =
+         bson_strdup_printf ("mongodb://%s:%s@%s%s",
+                             user,
+                             password,
+                             host_and_port,
+                             test_framework_get_ssl () ? "/?ssl=true" : "");
+      bson_free (user);
+      bson_free (password);
+   } else {
+      uri_str =
+         bson_strdup_printf ("mongodb://%s%s",
+                             host_and_port,
+                             test_framework_get_ssl () ? "/?ssl=true" : "");
+   }
+
+   call_hello_with_uri_string (uri_str, reply);
+
    bson_free (uri_str);
 }
 
@@ -1174,7 +1193,7 @@ call_hello_with_host_and_port (char *host_and_port, bson_t *reply)
  * call_hello --
  *
  *       Call hello or legacy hello on the test server, possibly over SSL, using
- *       host and port from the environment.
+ *       the connection string from the environment.
  *
  * Side effects:
  *       Fills reply with hello response. Logs and aborts on error.
@@ -1184,11 +1203,11 @@ call_hello_with_host_and_port (char *host_and_port, bson_t *reply)
 static void
 call_hello (bson_t *reply)
 {
-   char *host_and_port = test_framework_get_host_and_port ();
+   char *uri_str = test_framework_get_uri_str ();
 
-   call_hello_with_host_and_port (host_and_port, reply);
+   call_hello_with_uri_string (uri_str, reply);
 
-   bson_free (host_and_port);
+   bson_free (uri_str);
 }
 
 
