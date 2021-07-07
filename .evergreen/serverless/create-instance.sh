@@ -71,14 +71,10 @@ while [ true ]; do
         duration="$SECONDS"
         echo "setup done! ($(($duration / 60))m $(($duration % 60))s elapsed)"
         echo "SERVERLESS_INSTANCE_NAME=\"$INSTANCE_NAME\""
-        SRV_ADDRESS=$(echo $API_RESPONSE | $PYTHON_BINARY -c "import sys, json; print(json.load(sys.stdin)['srvAddress'])" | tr -d '\r\n')
-        echo "MONGODB_SRV_URI=\"$SRV_ADDRESS\""
-        STANDARD_ADDRESS=$(echo $API_RESPONSE | $PYTHON_BINARY -c "import sys, json; print(json.load(sys.stdin)['mongoURI'])" | tr -d '\r\n')
-        STANDARD_ADDRESS_WITH_OPTIONS="$STANDARD_ADDRESS/?ssl=true"
-        echo "MONGODB_URI=\"$STANDARD_ADDRESS_WITH_OPTIONS\""
+        MONGODB_URI=$(echo $API_RESPONSE | $PYTHON_BINARY -c "import sys, json; print(json.load(sys.stdin)['connectionStrings']['standardSrv'])" | tr -d '\r\n')
+        echo "MONGODB_URI=\"$MONGODB_URI\""
         cat <<EOF > serverless-expansion.yml
-MONGODB_URI: "$STANDARD_ADDRESS_WITH_OPTIONS"
-MONGODB_SRV_URI: "$SRV_ADDRESS"
+MONGODB_URI: "$MONGODB_URI"
 SERVERLESS_INSTANCE_NAME: "$INSTANCE_NAME"
 SSL: ssl
 AUTH: auth
