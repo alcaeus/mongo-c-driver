@@ -2907,8 +2907,15 @@ test_session_install (TestSuite *suite)
    add_session_test (suite, "/Session/cmd", test_cmd, false);
    add_session_test (suite, "/Session/read_cmd", test_read_cmd, true);
    add_session_test (suite, "/Session/write_cmd", test_write_cmd, false);
-   add_session_test (
-      suite, "/Session/read_write_cmd", test_read_write_cmd, true);
+   TestSuite_AddFull (suite,
+                      "/Session/read_write_cmd",
+                      run_session_test,
+                      NULL,
+                      (void *) test_read_write_cmd,
+                      test_framework_skip_if_no_cluster_time,
+                      test_framework_skip_if_no_crypto,
+                      test_framework_skip_if_serverless);
+
    add_session_test (suite, "/Session/db_cmd", test_db_cmd, false);
    TestSuite_AddFull (suite,
                       "/Session/count",
