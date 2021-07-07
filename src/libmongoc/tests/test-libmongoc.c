@@ -1462,7 +1462,7 @@ test_framework_uri_apply_multi_mongos (mongoc_uri_t *uri,
 {
    bool ret = false;
 
-   if (!test_framework_is_mongos ()) {
+   if (!test_framework_is_mongos () || test_framework_is_serverless ()) {
       ret = true;
       goto done;
    }
