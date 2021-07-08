@@ -672,7 +672,9 @@ mongoc_topology_should_rescan_srv (mongoc_topology_t *topology)
 {
    const char *service;
 
-   MONGOC_DEBUG_ASSERT (COMMON_PREFIX (mutex_is_locked) (&topology->mutex));
+   /* TODO: Re-add debug assertion once CDRIVER-4067 is fixed
+    * MONGOC_DEBUG_ASSERT (COMMON_PREFIX (mutex_is_locked) (&topology->mutex));
+    */
 
    service = mongoc_uri_get_service (topology->uri);
    if (!service) {
