@@ -755,10 +755,9 @@ functions:
         export CC='${CC}'
         export AUTH=noauth
         export SSL=${SSL}
-        export URI=${MONGODB_URI}
+        export URI="${MONGODB_URI}"
         export IPV4_ONLY=${IPV4_ONLY}
         export VALGRIND=${VALGRIND}
-        export MONGOC_TEST_URI=${MONGODB_URI}
         export DNS=${DNS}
         export ASAN=${ASAN}
         export MONGOC_TEST_IS_SERVERLESS=on
