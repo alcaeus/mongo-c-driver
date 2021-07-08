@@ -776,6 +776,7 @@ check_version_info (const bson_t *scenario, bool print_reason)
       bson_iter_t iter;
       bson_t topology;
       char *current_topology;
+      bool can_run = false;
 
       BSON_ASSERT (bson_iter_init_find (&iter, scenario, "topology"));
       BSON_ASSERT (BSON_ITER_HOLDS_ARRAY (&iter));
@@ -799,18 +800,38 @@ check_version_info (const bson_t *scenario, bool print_reason)
          test_topology = bson_iter_utf8 (&iter, NULL);
 
          if (strcmp (test_topology, current_topology) == 0) {
-            return true;
+            can_run = true;
+            break;
          }
       }
 
-      /* If we didn't match any of the listed topologies, skip */
-      if (print_reason && test_suite_debug_output ()) {
-         printf ("     SKIP, test topologies do not match current %s setup\n",
-                 current_topology);
-         fflush (stdout);
-      }
+      if (!can_run) {
+         /* If we didn't match any of the listed topologies, skip */
 
-      return false;
+         if (print_reason && test_suite_debug_output ()) {
+            printf ("     SKIP, test topologies do not match current %s setup\n",
+                    current_topology);
+            fflush (stdout);
+         }
+
+         return false;
+      }
+   }
+
+   if (bson_has_field (scenario, "serverless")) {
+      bson_iter_t iter;
+      bool is_serverless = test_framework_is_serverless ();
+
+      BSON_ASSERT (bson_iter_init_find (&iter, scenario, "serverless"));
+      ASSERT (BSON_ITER_HOLDS_UTF8 (&iter));
+
+      s = bson_iter_utf8 (&iter, NULL);
+
+      if (0 == strcmp (s, "require") && !is_serverless) {
+         return false;
+      } else if (0 == strcmp (s, "forbid") && is_serverless) {
+         return false;
+      }
    }
 
    return true;
@@ -971,6 +992,34 @@ check_topology_type (const bson_t *test)
    }
 
    return can_proceed;
+}
+
+static bool
+check_serverless_requirement (const bson_t *test)
+{
+   bson_iter_t iter;
+   const char *s;
+
+   if (!bson_iter_init_find (&iter, test, "serverless")) {
+      return true;
+   }
+
+   ASSERT (BSON_ITER_HOLDS_UTF8 (&iter));
+
+   s = bson_iter_utf8 (&iter, NULL);
+
+   if (0 == strcmp (s, "allow")) {
+      return true;
+   } else if (0 == strcmp (s, "require")) {
+      return test_framework_is_serverless ();
+   } else if (0 == strcmp (s, "forbid")) {
+      return !test_framework_is_serverless ();
+   } else if (test_suite_debug_output ()) {
+      printf ("      SKIP, incompatible serverless requirement \"%s\"\n", s);
+      fflush (stdout);
+   }
+
+   return false;
 }
 
 static void
@@ -1165,7 +1214,7 @@ execute_test (const json_test_config_t *config,
       fflush (stdout);
    }
 
-   if (!check_test_version (test) || !check_topology_type (test)) {
+   if (!check_test_version (test) || !check_topology_type (test) || !check_serverless_requirement (test)) {
       return;
    }
 
