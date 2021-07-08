@@ -1308,7 +1308,10 @@ test_framework_get_uri_str_no_auth (const char *database_name)
       bson_free (env_uri_str);
    } else {
       /* construct a direct connection or replica set connection URI */
-      call_hello (&hello_response);
+      char *host_and_port = test_framework_get_host_and_port ();
+      call_hello_with_host_and_port (host_and_port, &hello_response);
+      bson_free (host_and_port);
+
       uri_string = bson_string_new ("mongodb://");
 
       if ((name = set_name (&hello_response))) {
