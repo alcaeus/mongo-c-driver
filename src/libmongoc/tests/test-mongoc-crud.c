@@ -60,11 +60,15 @@ prose_test_1 (void *ctx)
 {
    mongoc_client_t *client;
    mongoc_collection_t *coll;
+   mongoc_uri_t *uri;
    bool ret;
    bson_t reply;
    bson_error_t error;
 
-   client = test_framework_new_default_client ();
+   uri = test_framework_get_uri ();
+   ASSERT_OR_PRINT (test_framework_uri_apply_multi_mongos (uri, false, &error), error);
+   client = test_framework_client_new_from_uri (uri, NULL);
+
    coll = get_test_collection (client, "coll");
 
    ret = mongoc_client_command_simple (
@@ -94,6 +98,7 @@ prose_test_1 (void *ctx)
    bson_destroy (&reply);
    mongoc_collection_destroy (coll);
    mongoc_client_destroy (client);
+   mongoc_uri_destroy (uri);
 }
 
 typedef struct {
@@ -121,13 +126,17 @@ prose_test_2 (void *ctx)
    mongoc_client_t *client;
    mongoc_database_t *db;
    mongoc_collection_t *coll, *coll_created;
+   mongoc_uri_t *uri;
    mongoc_apm_callbacks_t *callbacks;
    prose_test_2_apm_ctx_t apm_ctx = {0};
    bool ret;
    bson_t reply, reply_errInfo, observed_errInfo;
    bson_error_t error = {0};
 
-   client = test_framework_new_default_client ();
+   uri = test_framework_get_uri ();
+   ASSERT_OR_PRINT (test_framework_uri_apply_multi_mongos (uri, false, &error), error);
+   client = test_framework_client_new_from_uri (uri, NULL);
+
    db = get_test_database (client);
    coll = get_test_collection (client, "coll");
 
@@ -167,6 +176,7 @@ prose_test_2 (void *ctx)
    mongoc_collection_destroy (coll);
    mongoc_database_destroy (db);
    mongoc_client_destroy (client);
+   mongoc_uri_destroy (uri);
 }
 
 void
