@@ -666,10 +666,33 @@ _uri_from_env (void)
 {
    char *env_uri_str;
    mongoc_uri_t *uri;
+   bson_error_t error = {0};
 
    env_uri_str = _uri_str_from_env ();
    if (env_uri_str) {
-      uri = mongoc_uri_new (env_uri_str);
+      /* Use mongoc_uri_new_with_error to avoid warnings as we're potentially
+       * using invalid URIs */
+      uri = mongoc_uri_new_with_error (env_uri_str, &error);
+      bson_free (env_uri_str);
+      return uri;
+   }
+
+   return NULL;
+}
+
+static mongoc_uri_t *
+_uri_from_env_with_auth (void)
+{
+   char *env_uri_str;
+   char *env_uri_str_with_auth;
+   mongoc_uri_t *uri;
+
+   env_uri_str = _uri_str_from_env ();
+   if (env_uri_str) {
+      env_uri_str_with_auth = test_framework_add_user_password_from_env (env_uri_str);
+      uri = mongoc_uri_new (env_uri_str_with_auth);
+
+      bson_free (env_uri_str_with_auth);
       bson_free (env_uri_str);
       return uri;
    }
@@ -700,7 +723,7 @@ test_framework_get_host (void)
    char *host;
 
    /* MONGOC_TEST_URI takes precedence */
-   env_uri = _uri_from_env ();
+   env_uri = _uri_from_env_with_auth ();
    if (env_uri) {
       /* choose first host */
       hosts = mongoc_uri_get_hosts (env_uri);
@@ -740,7 +763,7 @@ test_framework_get_port (void)
    unsigned long port = MONGOC_DEFAULT_PORT;
 
    /* MONGOC_TEST_URI takes precedence */
-   env_uri = _uri_from_env ();
+   env_uri = _uri_from_env_with_auth ();
    if (env_uri) {
       /* choose first port */
       hosts = mongoc_uri_get_hosts (env_uri);
