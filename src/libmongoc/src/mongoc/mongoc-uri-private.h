@@ -55,6 +55,10 @@ _mongoc_uri_requires_auth_negotiation (const mongoc_uri_t *uri);
 const char *
 mongoc_uri_canonicalize_option (const char *key);
 
+void
+_mongoc_uri_replace_host_list (mongoc_uri_t *uri,
+                               const char *host);
+
 mongoc_uri_t *
 _mongoc_uri_copy_and_replace_host_list (const mongoc_uri_t *original,
                                         const char *host);

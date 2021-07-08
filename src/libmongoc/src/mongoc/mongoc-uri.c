@@ -3064,14 +3064,21 @@ _mongoc_uri_requires_auth_negotiation (const mongoc_uri_t *uri)
 
 /* A bit of a hack. Needed for multi mongos tests to create a URI with the same
  * auth, SSL, and compressors settings but with only one specific host. */
+void
+_mongoc_uri_replace_host_list (mongoc_uri_t *uri,
+                               const char *host)
+{
+   _mongoc_host_list_destroy_all (uri->hosts);
+   uri->hosts = bson_malloc0 (sizeof (mongoc_host_list_t));
+   _mongoc_host_list_from_string (uri->hosts, host);
+}
+
 mongoc_uri_t *
 _mongoc_uri_copy_and_replace_host_list (const mongoc_uri_t *original,
                                         const char *host)
 {
    mongoc_uri_t *uri = mongoc_uri_copy (original);
-   _mongoc_host_list_destroy_all (uri->hosts);
-   uri->hosts = bson_malloc0 (sizeof (mongoc_host_list_t));
-   _mongoc_host_list_from_string (uri->hosts, host);
+   _mongoc_uri_replace_host_list (uri, host);
    return uri;
 }
 

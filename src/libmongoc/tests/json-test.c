@@ -1740,10 +1740,13 @@ run_json_general_test (const json_test_config_t *config)
       uri = (config->uri_str != NULL) ? mongoc_uri_new (config->uri_str)
                                       : test_framework_get_uri ();
 
-      /* If we are using multiple mongos, hardcode them in, for now, but keep
-       * the other URI components (CDRIVER-3285) */
-      if (bson_iter_init_find (&uri_iter, &test, "useMultipleMongoses") &&
+      if (test_framework_is_serverless ()) {
+         ASSERT_OR_PRINT (test_framework_uri_apply_multi_mongos (uri, false, &error), error);
+      } else if (bson_iter_init_find (&uri_iter, &test, "useMultipleMongoses") &&
           bson_iter_as_bool (&uri_iter)) {
+         /* If we are using multiple mongos, hardcode them in, for now, but keep
+          * the other URI components (CDRIVER-3285) */
+
          ASSERT_OR_PRINT (
             mongoc_uri_upsert_host_and_port (uri, "localhost:27017", &error),
             error);

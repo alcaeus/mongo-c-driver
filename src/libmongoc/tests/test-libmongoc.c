@@ -1462,8 +1462,31 @@ test_framework_uri_apply_multi_mongos (mongoc_uri_t *uri,
 {
    bool ret = false;
 
-   if (!test_framework_is_mongos () || test_framework_is_serverless ()) {
+   if (!test_framework_is_mongos ()) {
       ret = true;
+      goto done;
+   }
+
+   if (test_framework_is_serverless ()) {
+      const mongoc_host_list_t *hosts;
+      char *host_and_port;
+
+      ret = true;
+      hosts = mongoc_uri_get_hosts (uri);
+
+      /* For serverless, do nothing if use_multi is true, but pick the first
+       * host from the host list if we want a single mongos. Note that this will
+       * dramatically fail for mongodb+srv URIs, which have an empty hostlist
+       */
+
+      if (use_multi || !hosts || !hosts->next) {
+         goto done;
+      }
+
+      host_and_port = bson_strdup (hosts->host_and_port);
+      _mongoc_uri_replace_host_list (uri, host_and_port);
+      bson_free (host_and_port);
+
       goto done;
    }
 
