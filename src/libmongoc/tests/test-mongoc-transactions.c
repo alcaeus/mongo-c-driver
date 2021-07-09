@@ -1218,7 +1218,8 @@ test_transactions_install (TestSuite *suite)
                       test_framework_skip_if_no_sessions,
                       test_framework_skip_if_no_crypto,
                       test_framework_skip_if_max_wire_version_less_than_8,
-                      test_framework_skip_if_not_mongos);
+                      test_framework_skip_if_not_mongos,
+                      test_framework_skip_if_serverless);
    TestSuite_AddFull (suite,
                       "/transactions/selected_server_pinned_to_mongos",
                       test_selected_server_is_pinned_to_mongos,
