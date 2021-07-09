@@ -1790,7 +1790,10 @@ run_json_general_test (const json_test_config_t *config)
                                       : test_framework_get_uri ();
 
       if (test_framework_is_serverless ()) {
-         ASSERT_OR_PRINT (test_framework_uri_apply_multi_mongos (uri, false, &error), error);
+         bool use_multiple_mongoses = bson_iter_init_find (&uri_iter, &test, "useMultipleMongoses") &&
+                                      bson_iter_as_bool (&uri_iter);
+
+         ASSERT_OR_PRINT (test_framework_uri_apply_multi_mongos (uri, use_multiple_mongoses, &error), error);
       } else if (bson_iter_init_find (&uri_iter, &test, "useMultipleMongoses") &&
           bson_iter_as_bool (&uri_iter)) {
          /* If we are using multiple mongos, hardcode them in, for now, but keep
