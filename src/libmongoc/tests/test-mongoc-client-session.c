@@ -3146,7 +3146,8 @@ test_session_install (TestSuite *suite)
       test_framework_skip_if_no_sessions,
       test_framework_skip_if_no_failpoint,
       /* Tests with retryable writes, requires non-standalone. */
-      test_framework_skip_if_single);
+      test_framework_skip_if_single,
+      test_framework_skip_if_serverless);
 
    TestSuite_AddFull (suite,
                       "/Session/snapshot/prose_test_1",
