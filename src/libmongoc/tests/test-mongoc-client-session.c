@@ -2870,7 +2870,8 @@ test_session_install (TestSuite *suite)
                       NULL,
                       NULL,
                       test_framework_skip_if_no_crypto,
-                      test_framework_skip_if_max_wire_version_less_than_6);
+                      test_framework_skip_if_max_wire_version_less_than_6,
+                      test_framework_skip_if_serverless);
    TestSuite_AddFull (suite,
                       "/Session/end/many/single",
                       test_end_sessions_many_single,
