@@ -93,14 +93,16 @@ transactions_test_before_test (json_test_ctx_t *ctx, const bson_t *test)
    bson_iter_t test_iter;
    bool is_multi_mongos;
 
-   _reset_server (ctx, "localhost:27017");
+   if (!test_framework_is_serverless ()) {
+      _reset_server (ctx, "localhost:27017");
 
-   is_multi_mongos =
-      bson_iter_init_find (&test_iter, test, "useMultipleMongoses") &&
-      bson_iter_as_bool (&test_iter);
+      is_multi_mongos =
+         bson_iter_init_find (&test_iter, test, "useMultipleMongoses") &&
+         bson_iter_as_bool (&test_iter);
 
-   if (is_multi_mongos) {
-      _reset_server (ctx, "localhost:27018");
+      if (is_multi_mongos) {
+         _reset_server (ctx, "localhost:27018");
+      }
    }
 }
 
@@ -111,14 +113,16 @@ transactions_test_after_test (json_test_ctx_t *ctx, const bson_t *test)
    bson_iter_t test_iter;
    bool is_multi_mongos;
 
-   _disable_failpoints (ctx, "localhost:27017");
+   if (!test_framework_is_serverless ()) {
+      _disable_failpoints (ctx, "localhost:27017");
 
-   is_multi_mongos =
-      bson_iter_init_find (&test_iter, test, "useMultipleMongoses") &&
-      bson_iter_as_bool (&test_iter);
+      is_multi_mongos =
+         bson_iter_init_find (&test_iter, test, "useMultipleMongoses") &&
+         bson_iter_as_bool (&test_iter);
 
-   if (is_multi_mongos) {
-      _disable_failpoints (ctx, "localhost:27018");
+      if (is_multi_mongos) {
+         _disable_failpoints (ctx, "localhost:27018");
+      }
    }
 }
 
