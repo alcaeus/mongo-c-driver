@@ -2995,7 +2995,8 @@ test_session_install (TestSuite *suite)
                       NULL,
                       NULL,
                       test_framework_skip_if_no_cluster_time,
-                      test_framework_skip_if_no_crypto);
+                      test_framework_skip_if_no_crypto,
+                      test_framework_skip_if_serverless);
    TestSuite_AddFull (suite,
                       "/Session/read_concern",
                       test_read_concern,
