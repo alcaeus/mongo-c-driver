@@ -45,56 +45,47 @@ BSON_BEGIN_DECLS
 #define WIRE_VERSION_MIN 3
 #define WIRE_VERSION_MAX 13
 
-/* first version that supported "find" and "getMore" commands */
-#define WIRE_VERSION_FIND_CMD 4
-/* first version with "killCursors" command */
-#define WIRE_VERSION_KILLCURSORS_CMD 4
-/* first version when findAndModify accepts writeConcern */
-#define WIRE_VERSION_FAM_WRITE_CONCERN 4
-/* first version to support readConcern */
-#define WIRE_VERSION_READ_CONCERN 4
-/* first version to support maxStalenessSeconds */
-#define WIRE_VERSION_MAX_STALENESS 5
-/* first version to support writeConcern */
-#define WIRE_VERSION_CMD_WRITE_CONCERN 5
-/* first version to support collation */
-#define WIRE_VERSION_COLLATION 5
-/* first version to support server-side errors for unsupported hint options */
-#define WIRE_VERSION_HINT_SERVER_SIDE_ERROR 5
-/* first version to support OP_MSG */
-#define WIRE_VERSION_OP_MSG 6
-/* first version to support array filters for "update" command */
-#define WIRE_VERSION_ARRAY_FILTERS 6
-/* first version to support retryable reads  */
-#define WIRE_VERSION_RETRY_READS 6
-/* first version to support retryable writes  */
-#define WIRE_VERSION_RETRY_WRITES 6
-/* version corresponding to server 4.0 release */
+/* wire version constants for server versions */
+#define WIRE_VERSION_2_6 2
+#define WIRE_VERSION_3_0 3
+#define WIRE_VERSION_3_2 4
+#define WIRE_VERSION_3_4 5
+#define WIRE_VERSION_3_6 6
 #define WIRE_VERSION_4_0 7
-/* first version to support hint for "update" command */
-#define WIRE_VERSION_UPDATE_HINT 8
-/* version corresponding to server 4.2 release */
 #define WIRE_VERSION_4_2 8
-/* version corresponding to client side field level encryption support. */
-#define WIRE_VERSION_CSE 8
-/* first version to throw server-side errors for unsupported hint in
- * "findAndModify" command */
-#define WIRE_VERSION_FIND_AND_MODIFY_HINT_SERVER_SIDE_ERROR 8
-/* first version to support hint for "delete" command */
-#define WIRE_VERSION_DELETE_HINT 9
-/* first version to support hint for "findAndModify" command */
-#define WIRE_VERSION_FIND_AND_MODIFY_HINT 9
-/* version corresponding to server 4.4 release */
 #define WIRE_VERSION_4_4 9
-/* version corresponding to retryable writes error label */
-#define WIRE_VERSION_RETRYABLE_WRITE_ERROR_LABEL 9
-/* first version to support server hedged reads */
-#define WIRE_VERSION_HEDGED_READS 9
-/* first version to support estimatedDocumentCount with collStats */
 #define WIRE_VERSION_4_9 12
-/* version corresponding to server 5.0 release */
 #define WIRE_VERSION_5_0 13
-/* first version to support snapshot reads */
+
+/* wire version constants for features */
+/* "find" and "getMore" commands */
+#define WIRE_VERSION_FIND_CMD 4
+#define WIRE_VERSION_KILLCURSORS_CMD 4
+/* writeConcern support for findAndModify */
+#define WIRE_VERSION_FAM_WRITE_CONCERN 4
+#define WIRE_VERSION_READ_CONCERN 4
+#define WIRE_VERSION_MAX_STALENESS 5
+#define WIRE_VERSION_CMD_WRITE_CONCERN 5
+#define WIRE_VERSION_COLLATION 5
+/* server-side errors for unsupported hint options */
+#define WIRE_VERSION_HINT_SERVER_SIDE_ERROR 5
+#define WIRE_VERSION_OP_MSG 6
+/* array filters for "update" command */
+#define WIRE_VERSION_ARRAY_FILTERS 6
+#define WIRE_VERSION_RETRY_READS 6
+#define WIRE_VERSION_RETRY_WRITES 6
+/* hint for "update" command */
+#define WIRE_VERSION_UPDATE_HINT 8
+#define WIRE_VERSION_CSE 8
+/* server-side errors for unsupported hint in "findAndModify" command */
+#define WIRE_VERSION_FIND_AND_MODIFY_HINT_SERVER_SIDE_ERROR 8
+/* hint for "delete" command */
+#define WIRE_VERSION_DELETE_HINT 9
+/* hint for "findAndModify" command */
+#define WIRE_VERSION_FIND_AND_MODIFY_HINT 9
+/* retryable writes error label */
+#define WIRE_VERSION_RETRYABLE_WRITE_ERROR_LABEL 9
+#define WIRE_VERSION_HEDGED_READS 9
 #define WIRE_VERSION_SNAPSHOT_READS 13
 
 struct _mongoc_collection_t;
