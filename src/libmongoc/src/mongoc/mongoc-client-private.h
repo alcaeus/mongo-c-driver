@@ -42,7 +42,7 @@
 BSON_BEGIN_DECLS
 
 /* protocol versions this driver can speak */
-#define WIRE_VERSION_MIN 3
+#define WIRE_VERSION_MIN 6
 #define WIRE_VERSION_MAX 13
 
 /* wire version constants for server versions */
